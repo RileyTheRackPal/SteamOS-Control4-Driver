@@ -1,0 +1,10 @@
+[Unit]
+Description=c4pad virtual gamepad bridge (Control4 Steam Machine driver)
+
+[Service]
+ExecStart=%h/c4pad/c4pad daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

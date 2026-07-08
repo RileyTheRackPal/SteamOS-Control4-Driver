@@ -84,6 +84,17 @@
 				<tooltip>What happens when the room turns the Steam Machine off: suspend, full shutdown, or nothing.</tooltip>
 			</property>
 			<property>
+				<name>Nav Input Backend</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Keyboard</default>
+				<items>
+					<item>Keyboard</item>
+					<item>Gamepad Bridge</item>
+				</items>
+				<tooltip>How navigation keys reach the Steam Machine. Keyboard = System Bridge key injection (Desktop Mode only). Gamepad Bridge = virtual controller via the c4pad helper + System Bridge command allowlist (works in Big Picture / game mode; see documentation).</tooltip>
+			</property>
+			<property>
 				<name>Debug Mode</name>
 				<type>LIST</type>
 				<readonly>false</readonly>
@@ -232,6 +243,32 @@
 					<param>
 						<name>KEY</name>
 						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+			<command>
+				<name>Press Gamepad Button</name>
+				<description>Press virtual gamepad button PARAM1 on NAME (requires the c4pad Gamepad Bridge)</description>
+				<sort_order>18</sort_order>
+				<params>
+					<param>
+						<name>BUTTON</name>
+						<type>LIST</type>
+						<items>
+							<item>A</item>
+							<item>B</item>
+							<item>X</item>
+							<item>Y</item>
+							<item>D-Pad Up</item>
+							<item>D-Pad Down</item>
+							<item>D-Pad Left</item>
+							<item>D-Pad Right</item>
+							<item>LB</item>
+							<item>RB</item>
+							<item>Start</item>
+							<item>Select</item>
+							<item>Guide (Steam)</item>
+						</items>
 					</param>
 				</params>
 			</command>

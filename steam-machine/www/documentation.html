@@ -37,9 +37,13 @@ and launches via its steam:// URI when selected.</p>
 <ul>
 <li>Transport keys map to System Bridge media control (MPRIS/playerctl) - they control media
 players (browser, Spotify, etc.), not the running game.</li>
-<li>D-pad/Enter/Back keys use keyboard injection, which works in Desktop Mode but may not work
-inside the SteamOS game session (gamescope/Wayland). Game launching via steam:// URIs works
-everywhere and is the recommended control path.</li>
+<li>With the default Keyboard backend, D-pad/Enter/Back use keyboard injection, which works in
+Desktop Mode but may not reach the SteamOS game session (gamescope/Wayland). For full game-mode
+control, install the <b>c4pad Gamepad Bridge</b> on the Steam Machine (see the steamos-pad folder
+in the driver package repository: a virtual Xbox 360 controller with no network listener, driven
+through System Bridge's command allowlist) and set the <b>Nav Input Backend</b> property to
+"Gamepad Bridge". D-pad then acts as a real controller in Big Picture and in games, with
+Enter=A, Back=B, Menu=Start, Guide=Steam button.</li>
 <li>"Notification Sent" fires when Control4 successfully delivers a notification to the machine;
 System Bridge does not report notifications from other sources.</li>
 <li>Sleep/Shutdown require System Bridge to be reachable; Wake-on-LAN requires the MAC address

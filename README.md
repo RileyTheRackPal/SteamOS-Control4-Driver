@@ -10,7 +10,9 @@ with per-game quick-launch **mini drivers** using Steam's `steam://` URI handlin
 |---|---|---|
 | `steam-machine/` | **Steam Machine (System Bridge)** | Main device driver: media_player proxy, HDMI/audio outputs, WoL power-on, System Bridge WebSocket control, programming events/variables, hosts up to 25 game mini apps |
 | `steam-game-miniapp/` | **Steam Game (Mini App)** | Per-game Watch-list tile; publishes its `steam://` URI to the parent (universal-minidriver pattern, `RF_MINI_APP`) |
+| `steamos-pad/` | **c4pad** | SteamOS helper: persistent uinput virtual Xbox 360 pad + owner-only local socket, driven via System Bridge `COMMAND_EXECUTE` (no network listener) - makes navigator keys work in game mode; see [steamos-pad/README.md](steamos-pad/README.md) |
 | `tools/build.ps1` | - | Packages each driver folder into a `.c4z` under `dist/` |
+| `tools/build-c4pad.ps1` | - | Cross-compiles the c4pad SteamOS helper (static linux/amd64) |
 | `tools/make-icons.ps1` | - | Regenerates the placeholder icons |
 
 ## Features
@@ -41,7 +43,7 @@ System Bridge installation on SteamOS and per-game mini-app cloning with custom 
 
 ## Known limitations
 
-- Keyboard injection (D-pad navigation) may not reach the gamescope game session on SteamOS (X11-only injection); `steam://` launching works everywhere
+- Keyboard injection (the default Nav Input Backend) may not reach the gamescope game session on SteamOS (X11-only injection); install the **c4pad Gamepad Bridge** (`steamos-pad/`) and switch the backend property to fix navigation in game mode - `steam://` launching works everywhere either way
 - Media transport controls MPRIS players (browser/Spotify), not the game itself; Media Mute is one-way (playerctl sets player volume to 0)
 - With Off Mode = `Power Off`, a queued game launch survives up to 5 minutes of cold boot; Sleep mode (default) resumes in seconds
 - "Notification Sent" event fires for notifications sent *by Control4*; System Bridge does not report other desktop notifications

@@ -52,6 +52,7 @@ do -- driver state
 	g_lastGameLaunch = 0
 	g_lastMediaStatus = nil
 	g_proxyPower = nil			-- last ON/OFF notify sent to the media_player proxy
+	g_pendingPad = {}			-- outstanding c4pad COMMAND_EXECUTE requests, id -> {cmd, ts}
 end
 
 require ('drivers-common-public.global.handlers')
@@ -244,6 +245,7 @@ end
 function OnWsDown (reason)
 	local wasUp = g_tcpUp
 	g_tcpUp = false
+	g_pendingPad = {}
 	SetOnline (false)
 	if (wasUp or (Properties ['Network Connection'] or ''):find ('Connecting')) then
 		UpdateProperty ('Network Connection', 'Offline (' .. reason .. ')')
@@ -270,6 +272,14 @@ function CheckStale ()
 		dbg ('No System Bridge traffic for ' .. STALE_SECONDS .. 's - reconnecting')
 		if (g_ws) then
 			g_ws:Start ()
+		end
+	end
+
+	-- drop pad requests that never got a terminal response
+	local now = os.time ()
+	for id, pending in pairs (g_pendingPad) do
+		if (now - pending.ts > 60) then
+			g_pendingPad [id] = nil
 		end
 	end
 end
@@ -328,7 +338,7 @@ function SBSend (event, data)
 		token = g_token,
 	}
 	g_ws:Send (JSON:encode (msg))
-	return true
+	return msg.id
 end
 
 function SBSubscribe ()
@@ -366,6 +376,10 @@ function OnWsMessage (data)
 	if (msgType == 'ERROR') then
 		if (msg.subtype == 'BAD_TOKEN' or msg.subtype == 'MISSING_TOKEN') then
 			UpdateProperty ('System Bridge Connection', 'Invalid token - check the System Bridge Token property')
+		elseif (msg.subtype == 'COMMAND_NOT_FOUND' and msg.id and g_pendingPad [msg.id]) then
+			local pending = g_pendingPad [msg.id]
+			g_pendingPad [msg.id] = nil
+			OnPadCommandMissing (pending.cmd)
 		else
 			dbg ('System Bridge error: ' .. tostring (msg.message) .. ' (' .. tostring (msg.subtype) .. ')')
 		end
@@ -386,6 +400,15 @@ function OnWsMessage (data)
 
 	elseif (msgType == 'NOTIFICATION_SENT') then
 		C4:FireEvent ('Notification Sent')
+
+	elseif (msgType == 'COMMAND_COMPLETED' and msg.id) then
+		local pending = g_pendingPad [msg.id]
+		g_pendingPad [msg.id] = nil
+		local exitCode = type (msg.data) == 'table' and tonumber (msg.data.exitCode)
+		if (pending and exitCode and exitCode ~= 0) then
+			dbg ('c4pad command failed (exit ' .. exitCode .. ') for ' .. pending.cmd ..
+				' - is the c4pad daemon running on the Steam Machine?')
+		end
 	end
 end
 
@@ -595,19 +618,76 @@ local URI_CMD_MAP = {
 	SETTINGS = URI_SETTINGS,
 }
 
+-- Gamepad Bridge backend: proxy command -> System Bridge allowlist commandID
+-- (c4pad_<action>_<button>, matching the entries the steamos-pad installer adds).
+-- Hold commands map to true press/release pairs so lists scroll properly.
+local PAD_MAP = {
+	UP = 'c4pad_press_up', START_UP = 'c4pad_hold_up', STOP_UP = 'c4pad_release_up',
+	DOWN = 'c4pad_press_down', START_DOWN = 'c4pad_hold_down', STOP_DOWN = 'c4pad_release_down',
+	LEFT = 'c4pad_press_left', START_LEFT = 'c4pad_hold_left', STOP_LEFT = 'c4pad_release_left',
+	RIGHT = 'c4pad_press_right', START_RIGHT = 'c4pad_hold_right', STOP_RIGHT = 'c4pad_release_right',
+	ENTER = 'c4pad_press_a',
+	BACK = 'c4pad_press_b', CANCEL = 'c4pad_press_b', EXIT = 'c4pad_press_b',
+	INFO = 'c4pad_press_x',
+	MENU = 'c4pad_press_start',
+	GUIDE = 'c4pad_press_guide',
+	PAGE_UP = 'c4pad_press_lb', START_PAGE_UP = 'c4pad_press_lb',
+	PAGE_DOWN = 'c4pad_press_rb', START_PAGE_DOWN = 'c4pad_press_rb',
+}
+
+-- when a c4pad allowlist entry is missing (COMMAND_NOT_FOUND), degrade:
+-- holds become plain presses; presses fall back to the keyboard/URI path
+local PAD_FALLBACK = {
+	START_UP = 'UP', START_DOWN = 'DOWN', START_LEFT = 'LEFT', START_RIGHT = 'RIGHT',
+}
+
+function KeyboardNav (strCommand)
+	if (KEY_MAP [strCommand]) then
+		SBKey (KEY_MAP [strCommand])
+	elseif (URI_CMD_MAP [strCommand]) then
+		LaunchURI (URI_CMD_MAP [strCommand])
+	end
+end
+
+function SBPad (strCommand)
+	local commandID = PAD_MAP [strCommand]
+	if (not commandID) then
+		return false
+	end
+	local id = SBSend ('COMMAND_EXECUTE', { commandID = commandID })
+	if (id) then
+		g_pendingPad [id] = { cmd = strCommand, ts = os.time () }
+	end
+	return true
+end
+
+function OnPadCommandMissing (strCommand)
+	dbg ('c4pad allowlist entry missing for ' .. strCommand .. ' - falling back')
+	local downgraded = PAD_FALLBACK [strCommand]
+	if (downgraded) then
+		SBPad (downgraded)
+	elseif (not strCommand:find ('^STOP_')) then
+		KeyboardNav (strCommand)
+	end
+end
+
 function HandleDeviceCommand (strCommand, tParams)
+	local padBackend = (Properties ['Nav Input Backend'] == 'Gamepad Bridge')
+
 	if (strCommand == 'ON') then
 		PowerOn (true)
 	elseif (strCommand == 'OFF') then
 		PowerOff ()
 	elseif (MEDIA_MAP [strCommand]) then
 		SBMedia (MEDIA_MAP [strCommand])
+	elseif (padBackend and PAD_MAP [strCommand]) then
+		SBPad (strCommand)
 	elseif (KEY_MAP [strCommand]) then
 		SBKey (KEY_MAP [strCommand])
 	elseif (URI_CMD_MAP [strCommand]) then
 		LaunchURI (URI_CMD_MAP [strCommand])
 	elseif (strCommand:find ('^STOP_')) then
-		-- releases of press-and-hold keys: nothing to do (we send single presses)
+		-- releases of press-and-hold keys: nothing to do on the keyboard path
 	else
 		dbg ('Unhandled proxy command: ' .. strCommand)
 	end
@@ -797,4 +877,23 @@ end
 
 function EC.Send_Keyboard_Key (tParams)
 	SBKey (tParams.KEY)
+end
+
+local GAMEPAD_BUTTON_TOKENS = {
+	['A'] = 'a', ['B'] = 'b', ['X'] = 'x', ['Y'] = 'y',
+	['D-Pad Up'] = 'up', ['D-Pad Down'] = 'down',
+	['D-Pad Left'] = 'left', ['D-Pad Right'] = 'right',
+	['LB'] = 'lb', ['RB'] = 'rb',
+	['Start'] = 'start', ['Select'] = 'select',
+	['Guide (Steam)'] = 'guide',
+}
+
+function EC.Press_Gamepad_Button (tParams)
+	local token = GAMEPAD_BUTTON_TOKENS [tParams.BUTTON or '']
+	if (token) then
+		local id = SBSend ('COMMAND_EXECUTE', { commandID = 'c4pad_press_' .. token })
+		if (id) then
+			g_pendingPad [id] = { cmd = 'BUTTON_' .. token, ts = os.time () }
+		end
+	end
 end
