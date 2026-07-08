@@ -53,6 +53,7 @@ do -- driver state
 	g_lastMediaStatus = nil
 	g_proxyPower = nil			-- last ON/OFF notify sent to the media_player proxy
 	g_pendingPad = {}			-- outstanding c4pad COMMAND_EXECUTE requests, id -> {cmd, ts}
+	g_activeHolds = {}			-- direction -> c4pad hold commandID currently held
 end
 
 require ('drivers-common-public.global.handlers')
@@ -246,6 +247,8 @@ function OnWsDown (reason)
 	local wasUp = g_tcpUp
 	g_tcpUp = false
 	g_pendingPad = {}
+	g_activeHolds = {}
+	CancelTimer ('PadHoldRefresh')
 	SetOnline (false)
 	if (wasUp or (Properties ['Network Connection'] or ''):find ('Connecting')) then
 		UpdateProperty ('Network Connection', 'Offline (' .. reason .. ')')
@@ -654,11 +657,51 @@ function SBPad (strCommand)
 	if (not commandID) then
 		return false
 	end
+
+	local holdDir = commandID:match ('^c4pad_hold_(%a+)$')
+	local releaseDir = commandID:match ('^c4pad_release_(%a+)$')
+
+	if (holdDir) then
+		-- sustain the hold: the daemon dead-man releases after ~5s unless the
+		-- hold is refreshed, so re-send it every 2s while active
+		CancelTimer ('PadEchoRelease_' .. holdDir)
+		g_activeHolds [holdDir] = commandID
+		StartPadHoldRefresh ()
+	elseif (releaseDir) then
+		g_activeHolds [releaseDir] = nil
+		StopPadHoldRefreshIfIdle ()
+		-- COMMAND_EXECUTE runs async on the server, so a release can execute
+		-- before its hold; echo the release once more shortly after (releasing
+		-- an unheld button is a no-op in the daemon)
+		SetTimer ('PadEchoRelease_' .. releaseDir, 200, function ()
+			SBSend ('COMMAND_EXECUTE', { commandID = commandID })
+		end)
+	end
+
 	local id = SBSend ('COMMAND_EXECUTE', { commandID = commandID })
 	if (id) then
 		g_pendingPad [id] = { cmd = strCommand, ts = os.time () }
 	end
 	return true
+end
+
+function StartPadHoldRefresh ()
+	SetTimer ('PadHoldRefresh', 2 * ONE_SECOND, function ()
+		local any = false
+		for _, cmdID in pairs (g_activeHolds) do
+			any = true
+			SBSend ('COMMAND_EXECUTE', { commandID = cmdID })
+		end
+		if (not any) then
+			CancelTimer ('PadHoldRefresh')
+		end
+	end, true)
+end
+
+function StopPadHoldRefreshIfIdle ()
+	if (next (g_activeHolds) == nil) then
+		CancelTimer ('PadHoldRefresh')
+	end
 end
 
 function OnPadCommandMissing (strCommand)

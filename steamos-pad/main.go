@@ -13,6 +13,10 @@
 //	c4pad releaseall | ping | version
 //
 // Buttons: up down left right (D-pad hat), a b x y, lb rb, start select guide, l3 r3
+//
+// Hold contract: a held button is auto-released after -hold-timeout (dead-man
+// against stuck input). Callers wanting a longer hold must re-send the same
+// 'hold <button>' within that window; a repeat refreshes the timestamp.
 package main
 
 import (
@@ -62,10 +66,19 @@ var hatDirections = map[string]uinput.HatDirection{
 	"right": uinput.HatRight,
 }
 
+// opposite hat direction on the same axis: HatRelease zeroes the whole axis,
+// so a tap of one direction physically ends a hold of the other
+var hatOpposite = map[string]string{
+	"up": "down", "down": "up", "left": "right", "right": "left",
+}
+
 func socketPath() string {
 	dir := os.Getenv("XDG_RUNTIME_DIR")
 	if dir == "" {
-		dir = os.TempDir()
+		// never fall back to world-writable /tmp: the name would be squattable
+		// and daemon/client could silently resolve different paths
+		fmt.Fprintln(os.Stderr, "c4pad: XDG_RUNTIME_DIR is not set; run from a systemd user unit or a logind session")
+		os.Exit(1)
 	}
 	return filepath.Join(dir, "c4pad.sock")
 }
@@ -148,12 +161,20 @@ func runDaemon(args []string) {
 
 	sock := socketPath()
 
-	// refuse to double-run; clean a stale socket file
-	if conn, err := net.DialTimeout("unix", sock, 500*time.Millisecond); err == nil {
-		conn.Close()
-		fmt.Fprintln(os.Stderr, "another c4pad daemon is already running on "+sock)
+	// single-instance guard: flock is atomic and auto-released on process
+	// death (incl. SIGKILL), unlike a dial-probe which races a second startup
+	lockFile, err := os.OpenFile(sock+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "cannot open lock file: "+err.Error())
 		os.Exit(1)
 	}
+	if err := syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		// exit 0: benign duplicate, must not trip systemd Restart=on-failure
+		fmt.Fprintln(os.Stderr, "another c4pad daemon is already running (lock held on "+sock+".lock)")
+		os.Exit(0)
+	}
+	// lockFile stays open (and locked) for the daemon's lifetime.
+	// Under the lock, any existing socket file is by definition stale.
 	_ = os.Remove(sock)
 
 	pad, err := uinput.CreateGamepad("/dev/uinput", []byte(padName), padVendor, padModel)
@@ -260,7 +281,9 @@ func (d *daemon) execute(action, token string) error {
 
 	switch action {
 	case "press":
+		delete(d.held, token) // a tap ends any active hold of this token
 		if isHat {
+			delete(d.held, hatOpposite[token]) // tap release zeroes the shared axis
 			if err := d.pad.HatPress(hat); err != nil {
 				return err
 			}

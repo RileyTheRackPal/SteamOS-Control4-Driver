@@ -7,7 +7,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_DIR="$HOME/c4pad"
 UNIT_DIR="$HOME/.config/systemd/user"
-SB_DIR="${SYSTEM_BRIDGE_CONFIG_DIR:-$HOME/.local/share/system-bridge/v5}"
+SB_DIR="${SYSTEM_BRIDGE_CONFIG_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/system-bridge/v5}"
 SETTINGS="$SB_DIR/settings.json"
 
 echo "== c4pad install =="
@@ -41,8 +41,10 @@ fi
 mkdir -p "$UNIT_DIR"
 cp -f "$HERE/c4pad.service" "$UNIT_DIR/c4pad.service"
 systemctl --user daemon-reload
-systemctl --user enable --now c4pad.service
-echo "c4pad.service enabled + started"
+systemctl --user enable c4pad.service
+# restart (not --now) so re-running the installer upgrades a live daemon too
+systemctl --user restart c4pad.service
+echo "c4pad.service enabled + (re)started"
 
 # 4) System Bridge command allowlist
 ALLOW="$HERE/c4pad-allowlist.json"
@@ -67,9 +69,13 @@ echo "generated $ALLOW"
 
 if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
 	cp -f "$SETTINGS" "$SETTINGS.bak"
+	# replace-by-prefix: drop all prior c4pad_* entries, append the fresh 21
+	# (idempotent re-install; foreign entries keep their order); preserve mode
 	jq --slurpfile new "$ALLOW" \
-		'.commands.allowlist = (((.commands.allowlist // []) + $new[0]) | unique_by(.id))' \
-		"$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+		'.commands.allowlist = (((.commands.allowlist // []) | map(select(((.id // "") | startswith("c4pad_")) | not))) + $new[0])' \
+		"$SETTINGS" > "$SETTINGS.tmp" \
+		&& chmod --reference="$SETTINGS" "$SETTINGS.tmp" \
+		&& mv "$SETTINGS.tmp" "$SETTINGS"
 	echo "merged 21 entries into $SETTINGS (backup: settings.json.bak)"
 	echo "RESTART System Bridge to pick up the allowlist."
 else
