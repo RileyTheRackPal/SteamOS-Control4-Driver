@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Steam Game (Mini App) Driver</title></head>
+<body>
+<h1>Steam Game (Mini App)</h1>
+<p>A per-game quick-launch tile for the "Steam Machine (System Bridge)" parent driver.
+Selecting it in a room's Watch list launches the configured game on the Steam Machine
+via its steam:// URI; remote control is passed through to the Steam Machine driver.</p>
+
+<h2>Setup</h2>
+<ol>
+<li>Add this driver to the project (one copy per game).</li>
+<li>Set <b>Game Name</b> (shown to users) and <b>Steam App ID or URI</b> - either the numeric
+App ID from steamdb.info (e.g. <code>620</code> for Portal 2) or a full URI such as
+<code>steam://rungameid/620</code>. The computed Launch URI property shows what will be sent.</li>
+<li>In <b>Connections</b>, bind this driver's "Steam Game" output to a free
+"Game App N" input on the Steam Machine driver.</li>
+<li>Verify the room has a valid audio path for this device (required for remote passthrough),
+then Refresh Navigators.</li>
+</ol>
+
+<h2>Custom icons (recommended)</h2>
+<p>To show game art in Navigators, make a copy of the .c4z per game: rename the file
+(e.g. <code>steam-game-portal2.c4z</code>), replace the images under
+<code>www/icons/device/experience_*.png</code> (70/90/300/512/1024 px), update the
+<code>&lt;name&gt;</code>/<code>&lt;model&gt;</code> and the five
+<code>controller://driver/steam-game-miniapp/...</code> icon URLs in driver.xml to the new
+file name, and bump <code>&lt;version&gt;</code>. Each renamed copy installs as its own driver.</p>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Steam Machine (System Bridge) Driver</title></head>
+<body>
+<h1>Steam Machine (System Bridge)</h1>
+<p>Controls a Steam Machine or any SteamOS/Linux PC running <b>System Bridge v5</b>
+(https://system-bridge.timmo.dev/). Power on is via Wake-on-LAN; everything else goes
+over the System Bridge WebSocket API on port 9170.</p>
+
+<h2>Steam Machine setup (once)</h2>
+<ol>
+<li>Install System Bridge v5 on the Steam Machine (Flatpak recommended on SteamOS, or the
+AUR package / binary + a <i>user</i> systemd service so it survives SteamOS updates).</li>
+<li>Make sure it starts automatically and runs in the background.</li>
+<li>Get the API token: run <code>system-bridge client token</code> on the machine
+(or read <code>~/.local/share/system-bridge/v5/token</code>).</li>
+<li>Enable Wake-on-LAN in BIOS/firmware settings if you want power-on from Control4.</li>
+</ol>
+
+<h2>Composer setup</h2>
+<ol>
+<li><b>Connections &gt; Network</b>: enter the Steam Machine's IP address (reserve it in DHCP).</li>
+<li><b>Connections &gt; Control/AV</b>: bind HDMI OUT (and optionally AUDIO OUT) to your display/AVR.</li>
+<li><b>Properties</b>: paste the System Bridge Token. Set Launch Into Big Picture and Off Mode
+(Sleep or Power Off) as desired.</li>
+<li><b>Actions tab</b>: use "Get MAC Address From Steam Machine" to fill the MAC automatically,
+and "Send Test Notification" / "Test Connection" to verify the link.</li>
+</ol>
+
+<h2>Game mini apps</h2>
+<p>Add one "Steam Game (Mini App)" driver per game, set its Game Name and Steam App ID
+(steamdb.info), then in <b>Connections</b> bind the mini app's "Steam Game" RF_MINI_APP output
+to a free "Game App N" input on this driver. The game then appears in the room's Watch list
+and launches via its steam:// URI when selected.</p>
+
+<h2>Notes and limitations</h2>
+<ul>
+<li>Transport keys map to System Bridge media control (MPRIS/playerctl) - they control media
+players (browser, Spotify, etc.), not the running game.</li>
+<li>D-pad/Enter/Back keys use keyboard injection, which works in Desktop Mode but may not work
+inside the SteamOS game session (gamescope/Wayland). Game launching via steam:// URIs works
+everywhere and is the recommended control path.</li>
+<li>"Notification Sent" fires when Control4 successfully delivers a notification to the machine;
+System Bridge does not report notifications from other sources.</li>
+<li>Sleep/Shutdown require System Bridge to be reachable; Wake-on-LAN requires the MAC address
+property and LAN (not WiFi) connectivity.</li>
+</ul>
+</body>
+</html>

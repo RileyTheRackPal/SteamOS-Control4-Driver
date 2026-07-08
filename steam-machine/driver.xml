@@ -1,0 +1,790 @@
+<devicedata>
+	<copyright>Copyright 2026. MIT License.</copyright>
+	<manufacturer>Valve</manufacturer>
+	<name>Steam Machine (System Bridge)</name>
+	<model>Steam Machine</model>
+	<creator>Eir</creator>
+	<created>07/08/2026 12:00</created>
+	<modified>07/08/2026 12:00</modified>
+	<version>1</version>
+	<control>lua_gen</control>
+	<controlmethod>ip</controlmethod>
+	<driver>DriverWorks</driver>
+	<auto_update>false</auto_update>
+	<minimum_os_version>3.0.0</minimum_os_version>
+	<small image_source="c4z">icons/device_sm.png</small>
+	<large image_source="c4z">icons/device_lg.png</large>
+	<composer_categories>
+		<category>Audio/Video</category>
+	</composer_categories>
+	<config>
+		<script file="driver.lua" jit="1"></script>
+		<documentation file="www/documentation.html"></documentation>
+		<properties>
+			<property>
+				<name>Driver Version</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>-</default>
+			</property>
+			<property>
+				<name>Network Connection</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>No address entered</default>
+			</property>
+			<property>
+				<name>System Bridge Connection</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>Not connected</default>
+			</property>
+			<property>
+				<name>Director Connection</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>-</default>
+			</property>
+			<property>
+				<name>System Bridge Token</name>
+				<type>STRING</type>
+				<password>true</password>
+				<readonly>false</readonly>
+				<default></default>
+				<tooltip>Paste the token from the Steam Machine. Get it by running: system-bridge client token</tooltip>
+			</property>
+			<property>
+				<name>MAC Address</name>
+				<type>STRING</type>
+				<readonly>false</readonly>
+				<default></default>
+				<tooltip>Used for Wake-on-LAN power on. Use the Actions tab to fetch it automatically from System Bridge.</tooltip>
+			</property>
+			<property>
+				<name>Launch Into Big Picture</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>On</default>
+				<items>
+					<item>On</item>
+					<item>Off</item>
+				</items>
+				<tooltip>When On, selecting the Steam Machine in a room opens Steam Big Picture mode.</tooltip>
+			</property>
+			<property>
+				<name>Off Mode</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Sleep</default>
+				<items>
+					<item>Sleep</item>
+					<item>Power Off</item>
+					<item>Do Nothing</item>
+				</items>
+				<tooltip>What happens when the room turns the Steam Machine off: suspend, full shutdown, or nothing.</tooltip>
+			</property>
+			<property>
+				<name>Debug Mode</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Off</default>
+				<items>
+					<item>Off</item>
+					<item>Print</item>
+				</items>
+			</property>
+		</properties>
+		<actions>
+			<action>
+				<name>Get MAC Address From Steam Machine</name>
+				<command>Get MAC Address</command>
+				<sort_order>0</sort_order>
+			</action>
+			<action>
+				<name>Test Connection</name>
+				<command>Test Connection</command>
+				<sort_order>1</sort_order>
+			</action>
+			<action>
+				<name>Send Test Notification</name>
+				<command>Send Test Notification</command>
+				<sort_order>2</sort_order>
+			</action>
+			<action>
+				<name>Launch Big Picture Now</name>
+				<command>Launch Big Picture</command>
+				<sort_order>3</sort_order>
+			</action>
+		</actions>
+		<commands>
+			<command>
+				<name>Power On</name>
+				<description>Power on NAME (Wake-on-LAN)</description>
+				<sort_order>0</sort_order>
+			</command>
+			<command>
+				<name>Power Off</name>
+				<description>Power off NAME (uses the Off Mode property)</description>
+				<sort_order>1</sort_order>
+			</command>
+			<command>
+				<name>Sleep</name>
+				<description>Put NAME to sleep</description>
+				<sort_order>2</sort_order>
+			</command>
+			<command>
+				<name>Shut Down</name>
+				<description>Shut down NAME</description>
+				<sort_order>3</sort_order>
+			</command>
+			<command>
+				<name>Restart</name>
+				<description>Restart NAME</description>
+				<sort_order>4</sort_order>
+			</command>
+			<command>
+				<name>Lock</name>
+				<description>Lock the session on NAME</description>
+				<sort_order>5</sort_order>
+			</command>
+			<command>
+				<name>Launch Big Picture</name>
+				<description>Open Steam Big Picture mode on NAME</description>
+				<sort_order>6</sort_order>
+			</command>
+			<command>
+				<name>Launch Steam Game</name>
+				<description>Launch Steam game with App ID PARAM1 on NAME</description>
+				<sort_order>7</sort_order>
+				<params>
+					<param>
+						<name>APP_ID</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+			<command>
+				<name>Open URI</name>
+				<description>Open URI PARAM1 on NAME (steam://, http://, etc.)</description>
+				<sort_order>8</sort_order>
+				<params>
+					<param>
+						<name>URI</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+			<command>
+				<name>Send Notification</name>
+				<description>Show notification PARAM1 - PARAM2 on NAME</description>
+				<sort_order>9</sort_order>
+				<params>
+					<param>
+						<name>TITLE</name>
+						<type>STRING</type>
+					</param>
+					<param>
+						<name>MESSAGE</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+			<command>
+				<name>Media Play Pause</name>
+				<description>Toggle media play/pause on NAME</description>
+				<sort_order>10</sort_order>
+			</command>
+			<command>
+				<name>Media Next</name>
+				<description>Media next track on NAME</description>
+				<sort_order>11</sort_order>
+			</command>
+			<command>
+				<name>Media Previous</name>
+				<description>Media previous track on NAME</description>
+				<sort_order>12</sort_order>
+			</command>
+			<command>
+				<name>Media Stop</name>
+				<description>Media stop on NAME</description>
+				<sort_order>13</sort_order>
+			</command>
+			<command>
+				<name>Volume Up</name>
+				<description>Media volume up on NAME</description>
+				<sort_order>14</sort_order>
+			</command>
+			<command>
+				<name>Volume Down</name>
+				<description>Media volume down on NAME</description>
+				<sort_order>15</sort_order>
+			</command>
+			<command>
+				<name>Mute</name>
+				<description>Mute media on NAME</description>
+				<sort_order>16</sort_order>
+			</command>
+			<command>
+				<name>Send Keyboard Key</name>
+				<description>Send keyboard key PARAM1 to NAME</description>
+				<sort_order>17</sort_order>
+				<params>
+					<param>
+						<name>KEY</name>
+						<type>STRING</type>
+					</param>
+				</params>
+			</command>
+		</commands>
+	</config>
+	<proxies qty="2">
+		<proxy proxybindingid="5001" name="Steam Machine" primary="True" image_source="c4z" small_image="icons/device_sm.png" large_image="icons/device_lg.png">media_player</proxy>
+		<proxy proxybindingid="5002" name="Steam App Switcher">avswitch</proxy>
+	</proxies>
+	<events>
+		<event>
+			<id>1</id>
+			<name>Came Online</name>
+			<description>When NAME comes online (System Bridge connected)</description>
+		</event>
+		<event>
+			<id>2</id>
+			<name>Went Offline</name>
+			<description>When NAME goes offline (System Bridge disconnected)</description>
+		</event>
+		<event>
+			<id>3</id>
+			<name>Turned On</name>
+			<description>When NAME is turned on (selected in a room)</description>
+		</event>
+		<event>
+			<id>4</id>
+			<name>Turned Off</name>
+			<description>When NAME is turned off by a room</description>
+		</event>
+		<event>
+			<id>5</id>
+			<name>Game Launched</name>
+			<description>When a game or Steam URI is launched on NAME</description>
+		</event>
+		<event>
+			<id>6</id>
+			<name>Notification Sent</name>
+			<description>When NAME receives a notification sent by Control4</description>
+		</event>
+		<event>
+			<id>7</id>
+			<name>Media Started Playing</name>
+			<description>When media starts playing on NAME</description>
+		</event>
+		<event>
+			<id>8</id>
+			<name>Media Paused</name>
+			<description>When media is paused on NAME</description>
+		</event>
+		<event>
+			<id>9</id>
+			<name>Media Stopped</name>
+			<description>When media stops on NAME</description>
+		</event>
+	</events>
+	<connections>
+		<connection>
+			<id>5001</id>
+			<facing>6</facing>
+			<connectionname>Steam Machine (Media Player)</connectionname>
+			<type>2</type>
+			<consumer>False</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>MEDIA_PLAYER</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection>
+			<id>5002</id>
+			<facing>6</facing>
+			<connectionname>Steam App Switcher</connectionname>
+			<type>2</type>
+			<consumer>False</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>AVSWITCH</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5001">
+			<id>2000</id>
+			<facing>1</facing>
+			<connectionname>HDMI OUT</connectionname>
+			<type>5</type>
+			<consumer>False</consumer>
+			<audiosource>True</audiosource>
+			<videosource>True</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5001">
+			<id>4000</id>
+			<facing>1</facing>
+			<connectionname>AUDIO OUT</connectionname>
+			<type>6</type>
+			<consumer>False</consumer>
+			<audiosource>True</audiosource>
+			<videosource>False</videosource>
+			<linelevel>True</linelevel>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+				</class>
+				<class>
+					<classname>DIGITAL_OPTICAL</classname>
+				</class>
+				<class>
+					<classname>DIGITAL_COAX</classname>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>2110</id>
+			<facing>6</facing>
+			<connectionname>App Switch Video Out</connectionname>
+			<type>5</type>
+			<consumer>False</consumer>
+			<linelevel>True</linelevel>
+			<hidden>True</hidden>
+			<idautobind>10</idautobind>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5001">
+			<id>1001</id>
+			<facing>6</facing>
+			<connectionname>Video In From App Switch</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>True</linelevel>
+			<hidden>True</hidden>
+			<idautobind>10</idautobind>
+			<classes>
+				<class>
+					<classname>HDMI</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>4110</id>
+			<facing>6</facing>
+			<connectionname>App Switch Audio Out</connectionname>
+			<type>6</type>
+			<consumer>False</consumer>
+			<linelevel>True</linelevel>
+			<hidden>True</hidden>
+			<idautobind>20</idautobind>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5001">
+			<id>3001</id>
+			<facing>6</facing>
+			<connectionname>Audio In From App Switch</connectionname>
+			<type>6</type>
+			<consumer>True</consumer>
+			<linelevel>True</linelevel>
+			<hidden>True</hidden>
+			<idautobind>20</idautobind>
+			<classes>
+				<class>
+					<classname>STEREO</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3101</id>
+			<facing>6</facing>
+			<connectionname>Game App 1</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3102</id>
+			<facing>6</facing>
+			<connectionname>Game App 2</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3103</id>
+			<facing>6</facing>
+			<connectionname>Game App 3</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3104</id>
+			<facing>6</facing>
+			<connectionname>Game App 4</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3105</id>
+			<facing>6</facing>
+			<connectionname>Game App 5</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3106</id>
+			<facing>6</facing>
+			<connectionname>Game App 6</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3107</id>
+			<facing>6</facing>
+			<connectionname>Game App 7</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3108</id>
+			<facing>6</facing>
+			<connectionname>Game App 8</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3109</id>
+			<facing>6</facing>
+			<connectionname>Game App 9</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3110</id>
+			<facing>6</facing>
+			<connectionname>Game App 10</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3111</id>
+			<facing>6</facing>
+			<connectionname>Game App 11</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3112</id>
+			<facing>6</facing>
+			<connectionname>Game App 12</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3113</id>
+			<facing>6</facing>
+			<connectionname>Game App 13</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3114</id>
+			<facing>6</facing>
+			<connectionname>Game App 14</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3115</id>
+			<facing>6</facing>
+			<connectionname>Game App 15</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3116</id>
+			<facing>6</facing>
+			<connectionname>Game App 16</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3117</id>
+			<facing>6</facing>
+			<connectionname>Game App 17</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3118</id>
+			<facing>6</facing>
+			<connectionname>Game App 18</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3119</id>
+			<facing>6</facing>
+			<connectionname>Game App 19</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3120</id>
+			<facing>6</facing>
+			<connectionname>Game App 20</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3121</id>
+			<facing>6</facing>
+			<connectionname>Game App 21</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3122</id>
+			<facing>6</facing>
+			<connectionname>Game App 22</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3123</id>
+			<facing>6</facing>
+			<connectionname>Game App 23</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3124</id>
+			<facing>6</facing>
+			<connectionname>Game App 24</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection proxybindingid="5002">
+			<id>3125</id>
+			<facing>6</facing>
+			<connectionname>Game App 25</connectionname>
+			<type>5</type>
+			<consumer>True</consumer>
+			<linelevel>False</linelevel>
+			<classes>
+				<class>
+					<classname>RF_MINI_APP</classname>
+					<autobind>True</autobind>
+				</class>
+			</classes>
+		</connection>
+		<connection>
+			<id>6001</id>
+			<facing>6</facing>
+			<connectionname>Steam Machine Network (System Bridge)</connectionname>
+			<type>4</type>
+			<consumer>True</consumer>
+			<classes>
+				<class>
+					<classname>TCP</classname>
+					<ports>
+						<port>
+							<number>9170</number>
+							<auto_connect>False</auto_connect>
+							<monitor_connection>False</monitor_connection>
+							<keep_connection>False</keep_connection>
+							<keep_alive>False</keep_alive>
+						</port>
+					</ports>
+				</class>
+			</classes>
+		</connection>
+	</connections>
+</devicedata>
