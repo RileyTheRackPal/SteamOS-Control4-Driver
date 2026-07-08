@@ -42,7 +42,8 @@ System Bridge installation on SteamOS and per-game mini-app cloning with custom 
 ## Known limitations
 
 - Keyboard injection (D-pad navigation) may not reach the gamescope game session on SteamOS (X11-only injection); `steam://` launching works everywhere
-- Media transport controls MPRIS players (browser/Spotify), not the game itself
+- Media transport controls MPRIS players (browser/Spotify), not the game itself; Media Mute is one-way (playerctl sets player volume to 0)
+- With Off Mode = `Power Off`, a queued game launch survives up to 5 minutes of cold boot; Sleep mode (default) resumes in seconds
 - "Notification Sent" event fires for notifications sent *by Control4*; System Bridge does not report other desktop notifications
 - The drivers are unsigned/unencrypted; Composer will treat them as developer drivers
 

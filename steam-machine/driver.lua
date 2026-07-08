@@ -168,8 +168,15 @@ function OPC.MAC_Address (value)
 	if (mac ~= '') then
 		g_mac = mac
 		UpdateProperty ('MAC Address', mac)
-	elseif (trim (value) == '') then
+	else
 		g_mac = ''
+		if (trim (value) ~= '') then
+			-- malformed entry: clear it (immediate feedback in Composer) instead
+			-- of leaving invalid text that silently disables WOL after the next
+			-- Director restart; a blank property also re-enables auto-fill from
+			-- System Bridge system data
+			UpdateProperty ('MAC Address', '')
+		end
 	end
 end
 
@@ -268,12 +275,15 @@ function CheckStale ()
 end
 
 function SetOnline (online)
+	-- NOTE: link state deliberately does NOT drive the media_player ON/OFF
+	-- notifies. Sending ON on every reconnect would auto-select the source in
+	-- rooms (and OFF would flap them) whenever the PC wakes for updates or the
+	-- socket blips. Power notifies are sent only from PowerOn/PowerOff.
 	if (online and not g_online) then
 		g_online = true
 		SetVariable ('ONLINE', '1')
 		UpdateProperty ('System Bridge Connection', 'Connected and authenticated')
 		C4:FireEvent ('Came Online')
-		NotifyPower ('ON')
 
 		if (g_pendingLaunch) then
 			local uri = g_pendingLaunch
@@ -286,7 +296,6 @@ function SetOnline (online)
 		SetVariable ('ONLINE', '0')
 		UpdateProperty ('System Bridge Connection', 'Not connected')
 		C4:FireEvent ('Went Offline')
-		NotifyPower ('OFF')
 	end
 end
 
@@ -465,6 +474,7 @@ end
 ---------------------------------------------------------------------------
 
 function PowerOn (allowBigPicture)
+	CancelTimer ('DeferredOff')
 	C4:FireEvent ('Turned On')
 	NotifyPower ('ON')
 
@@ -472,6 +482,15 @@ function PowerOn (allowBigPicture)
 		C4:SendWOL (g_mac)
 		SetTimer ('WOL2', 2 * ONE_SECOND, function () C4:SendWOL (g_mac) end)
 		SetTimer ('WOL3', 5 * ONE_SECOND, function () C4:SendWOL (g_mac) end)
+	end
+
+	-- re-attach promptly once the machine is up instead of waiting out the
+	-- full reconnect backoff
+	if (not g_tcpUp) then
+		g_reconnectDelay = 5
+		if (g_ws) then
+			ScheduleReconnect ()
+		end
 	end
 
 	if (allowBigPicture
@@ -485,23 +504,37 @@ function PowerOn (allowBigPicture)
 	end
 end
 
-function PowerOff ()
+function PowerOff (immediate)
 	C4:FireEvent ('Turned Off')
 	NotifyPower ('OFF')
 	g_pendingLaunch = nil
 	CancelTimer ('PendingLaunch')
 
-	local mode = Properties ['Off Mode'] or 'Sleep'
-	if (mode == 'Sleep') then
-		SBSend ('POWER_SLEEP', {})
-	elseif (mode == 'Power Off') then
-		SBSend ('POWER_SHUTDOWN', {})
+	local doOff = function ()
+		local mode = Properties ['Off Mode'] or 'Sleep'
+		if (mode == 'Sleep') then
+			SBSend ('POWER_SLEEP', {})
+		elseif (mode == 'Power Off') then
+			SBSend ('POWER_SHUTDOWN', {})
+		end
+	end
+
+	if (immediate) then
+		doOff ()
+	else
+		-- The room also sends OFF when the user switches between two of our
+		-- sources (e.g. game mini app -> game mini app). Defer the actual
+		-- sleep/shutdown so a SET_INPUT / relaunch / power-on arriving within
+		-- the window cancels it instead of suspending the PC mid-switch.
+		SetTimer ('DeferredOff', 5 * ONE_SECOND, doOff)
 	end
 end
 
 function QueueLaunch (uri)
 	g_pendingLaunch = uri
-	SetTimer ('PendingLaunch', 120 * ONE_SECOND, function ()
+	-- a cold boot after 'Power Off' takes far longer than a resume from sleep
+	local window = (Properties ['Off Mode'] == 'Power Off') and 300 or 120
+	SetTimer ('PendingLaunch', window * ONE_SECOND, function ()
 		g_pendingLaunch = nil
 	end)
 end
@@ -511,6 +544,8 @@ function LaunchURI (uri, friendlyName)
 	if (uri == '') then
 		return
 	end
+
+	CancelTimer ('DeferredOff')
 
 	if (uri:find ('^steam://')) then
 		g_lastGameLaunch = os.time ()
@@ -595,6 +630,7 @@ RFP [SWITCHER_PROXY] = function (idBinding, strCommand, tParams, args)
 		HandleDeviceCommand (inner, tParams)
 
 	elseif (strCommand == 'SET_INPUT') then
+		CancelTimer ('DeferredOff')	-- input switch, not a real power-off
 		local input = tonumber (tParams.INPUT)
 		if (input and input >= MINIAPP_BINDING_START and input <= MINIAPP_BINDING_END) then
 			LaunchMiniApp (idBinding, input)
@@ -677,7 +713,8 @@ function EC.Power_On (tParams)
 end
 
 function EC.Power_Off (tParams)
-	PowerOff ()
+	-- explicit programming command: no source-switch debounce needed
+	PowerOff (true)
 end
 
 function EC.Sleep (tParams)
@@ -718,9 +755,14 @@ function EC.Send_Notification (tParams)
 	if (title == '') then
 		title = 'Control4'
 	end
+	local message = trim (tParams.MESSAGE)
+	if (message == '') then
+		-- the server rejects empty messages (MISSING_TEXT)
+		message = title
+	end
 	SBSend ('NOTIFICATION', {
 		title = title,
-		message = tostring (tParams.MESSAGE or ''),
+		message = message,
 	})
 end
 
@@ -740,15 +782,16 @@ function EC.Media_Stop (tParams)
 	SBMedia ('STOP')
 end
 
-function EC.Volume_Up (tParams)
+function EC.Media_Volume_Up (tParams)
 	SBMedia ('VOLUME_UP')
 end
 
-function EC.Volume_Down (tParams)
+function EC.Media_Volume_Down (tParams)
 	SBMedia ('VOLUME_DOWN')
 end
 
-function EC.Mute (tParams)
+function EC.Media_Mute (tParams)
+	-- one-way on Linux: playerctl sets the MPRIS player volume to 0
 	SBMedia ('MUTE')
 end
 

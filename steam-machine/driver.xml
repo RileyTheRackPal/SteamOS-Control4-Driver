@@ -210,23 +210,23 @@
 				<sort_order>13</sort_order>
 			</command>
 			<command>
-				<name>Volume Up</name>
-				<description>Media volume up on NAME</description>
+				<name>Media Volume Up</name>
+				<description>Raise the active media player volume 5% on NAME (MPRIS player, not system/game audio)</description>
 				<sort_order>14</sort_order>
 			</command>
 			<command>
-				<name>Volume Down</name>
-				<description>Media volume down on NAME</description>
+				<name>Media Volume Down</name>
+				<description>Lower the active media player volume 5% on NAME (MPRIS player, not system/game audio)</description>
 				<sort_order>15</sort_order>
 			</command>
 			<command>
-				<name>Mute</name>
-				<description>Mute media on NAME</description>
+				<name>Media Mute</name>
+				<description>Set the active media player volume to 0 on NAME (one-way; recover with Media Volume Up)</description>
 				<sort_order>16</sort_order>
 			</command>
 			<command>
 				<name>Send Keyboard Key</name>
-				<description>Send keyboard key PARAM1 to NAME</description>
+				<description>Send keyboard key PARAM1 to NAME (works in Desktop Mode; may not reach the SteamOS game session)</description>
 				<sort_order>17</sort_order>
 				<params>
 					<param>

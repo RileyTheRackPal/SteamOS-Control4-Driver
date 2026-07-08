@@ -44,6 +44,11 @@ everywhere and is the recommended control path.</li>
 System Bridge does not report notifications from other sources.</li>
 <li>Sleep/Shutdown require System Bridge to be reachable; Wake-on-LAN requires the MAC address
 property and LAN (not WiFi) connectivity.</li>
+<li>Media Volume Up/Down/Mute act on the active MPRIS media player (browser/Spotify), not
+system or game audio; Mute is one-way (recover with Media Volume Up).</li>
+<li>With Off Mode = Power Off, picking a game while the machine is off wakes it, but if a cold
+boot takes longer than 5 minutes the queued launch is dropped (Sleep mode resumes in seconds
+and is recommended).</li>
 </ul>
 </body>
 </html>
