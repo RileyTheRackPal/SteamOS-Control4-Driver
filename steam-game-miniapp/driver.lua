@@ -49,13 +49,22 @@ function UpdateAppData ()
 	if (name == '') then
 		name = 'Steam Game'
 	end
+	name = name:gsub ('%c', ' '):sub (1, 128)
 
 	local raw = trim (Properties ['Steam App ID or URI'])
 	local uri = ''
 	if (raw:find ('^%d+$')) then
 		uri = 'steam://rungameid/' .. raw
-	elseif (raw ~= '') then
+	elseif (raw:match ('^[Ss][Tt][Ee][Aa][Mm]://[%w/%._%-%?=&:%%]*$')) then
+		-- accept only a well-formed steam:// URI; the parent enforces the same
+		-- allowlist, but validate here too so a mis-set or hostile mini can
+		-- never publish a file:// / app-handler URI into UM_STEAM_MACHINE
 		uri = raw
+	elseif (raw ~= '') then
+		C4:UpdateProperty ('Launch URI', 'Rejected: only a numeric App ID or a steam:// URI is allowed')
+		C4:SetVariable ('APP_NAME', name)
+		C4:SetVariable (MINIAPP_TYPE, '')
+		return
 	end
 
 	if (Properties ['Launch URI'] ~= uri) then

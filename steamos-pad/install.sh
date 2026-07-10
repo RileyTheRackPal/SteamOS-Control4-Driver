@@ -12,11 +12,28 @@ SETTINGS="$SB_DIR/settings.json"
 
 echo "== c4pad install =="
 
-# 1) binary
+# 1) binary — this path becomes a System-Bridge-invocable (COMMAND_EXECUTE) and
+#    systemd-autostarted executable, so it must be a regular file owned by us
+#    with no group/world write. Refuse unsafe install dirs before writing.
+if [ -L "$INSTALL_DIR" ]; then
+	echo "refusing: $INSTALL_DIR is a symlink" >&2; exit 1
+fi
+if [ -e "$INSTALL_DIR" ]; then
+	if [ "$(stat -c %u "$INSTALL_DIR")" != "$(id -u)" ] || [ $(( 0$(stat -c %a "$INSTALL_DIR") & 022 )) -ne 0 ]; then
+		echo "refusing: $INSTALL_DIR is not owner-only (must be owned by you, no group/world write)" >&2; exit 1
+	fi
+fi
 mkdir -p "$INSTALL_DIR"
-cp -f "$HERE/c4pad" "$INSTALL_DIR/c4pad"
-chmod +x "$INSTALL_DIR/c4pad"
+chmod 700 "$INSTALL_DIR"
+# install unlink-replaces (never writes through a symlink) and sets mode 700:
+# no group/world read or write on the executable itself
+rm -f "$INSTALL_DIR/c4pad"
+install -m 700 "$HERE/c4pad" "$INSTALL_DIR/c4pad"
+if [ ! -f "$INSTALL_DIR/c4pad" ] || [ -L "$INSTALL_DIR/c4pad" ] || [ "$(stat -c %u "$INSTALL_DIR/c4pad")" != "$(id -u)" ]; then
+	echo "binary integrity check failed for $INSTALL_DIR/c4pad" >&2; exit 1
+fi
 echo "installed $INSTALL_DIR/c4pad"
+command -v sha256sum >/dev/null 2>&1 && sha256sum "$INSTALL_DIR/c4pad"
 
 # 2) check /dev/uinput access for this user
 if getfacl -p /dev/uinput 2>/dev/null | grep -q "user:$(id -un):rw"; then
@@ -67,8 +84,11 @@ ALLOW="$HERE/c4pad-allowlist.json"
 } > "$ALLOW"
 echo "generated $ALLOW"
 
+chmod 600 "$ALLOW"  # generated file names the exec path; keep it owner-only
 if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
-	cp -f "$SETTINGS" "$SETTINGS.bak"
+	# the backup sits next to the plaintext token file; do not leave it world-readable
+	( umask 077; cp -f "$SETTINGS" "$SETTINGS.bak" )
+	chmod --reference="$SETTINGS" "$SETTINGS.bak" 2>/dev/null || chmod 600 "$SETTINGS.bak"
 	# replace-by-prefix: drop all prior c4pad_* entries, append the fresh 21
 	# (idempotent re-install; foreign entries keep their order); preserve mode
 	jq --slurpfile new "$ALLOW" \

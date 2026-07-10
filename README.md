@@ -41,13 +41,29 @@ System Bridge installation on SteamOS and per-game mini-app cloning with custom 
 3. Wake-on-LAN enabled in firmware + wired Ethernet for power-on
 4. `playerctl` present for media control (bundled in most desktop installs)
 
+## Security & privacy (read before deploying)
+
+**[SECURITY.md](SECURITY.md) is required reading before you install this on an
+end-user system.** In short:
+
+- The System Bridge **token is a full local-user credential** (arbitrary file
+  reads, shutdown, `OPEN`, keyboard, command execution) and travels in
+  **cleartext over `ws://`** — put the Steam Machine + Director on a **dedicated
+  VLAN**, **firewall port 9170 to the Director only**, and never port-forward it.
+- The developer `.c4z` is **unencrypted**, so a real token is stored in cleartext
+  in the Director DB and project backups — use an **encrypted release build** in
+  production and don't share backups taken with a real token.
+- The driver enforces a **`steam://`-only URI allowlist**, sanitizes inbound
+  data, and the c4pad helper has **no network listener** and runs sandboxed. See
+  SECURITY.md for the full threat model, the data collected, and residual risk.
+
 ## Known limitations
 
 - Keyboard injection (the default Nav Input Backend) may not reach the gamescope game session on SteamOS (X11-only injection); install the **c4pad Gamepad Bridge** (`steamos-pad/`) and switch the backend property to fix navigation in game mode - `steam://` launching works everywhere either way
 - Media transport controls MPRIS players (browser/Spotify), not the game itself; Media Mute is one-way (playerctl sets player volume to 0)
 - With Off Mode = `Power Off`, a queued game launch survives up to 5 minutes of cold boot; Sleep mode (default) resumes in seconds
 - "Notification Sent" event fires for notifications sent *by Control4*; System Bridge does not report other desktop notifications
-- The drivers are unsigned/unencrypted; Composer will treat them as developer drivers
+- The developer `.c4z` is unsigned/unencrypted (Composer treats it as a developer driver) — see [SECURITY.md](SECURITY.md); ship an encrypted release build for production so the token is not stored in cleartext
 
 ## Implementation notes
 

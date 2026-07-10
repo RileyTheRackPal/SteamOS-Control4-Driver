@@ -33,6 +33,25 @@ and "Send Test Notification" / "Test Connection" to verify the link.</li>
 to a free "Game App N" input on this driver. The game then appears in the room's Watch list
 and launches via its steam:// URI when selected.</p>
 
+<h2>Security &amp; privacy (read before deploying)</h2>
+<p><b>The System Bridge token is a full local-user credential</b> - it grants arbitrary file
+reads, shutdown/restart, opening URIs, keyboard injection, and command execution on the Steam
+Machine. System Bridge transmits it in <b>cleartext over ws://</b> (no TLS) and accepts
+connections from any origin. You must compensate at the network layer:</p>
+<ul>
+<li>Put the Steam Machine and the Control4 Director on a <b>dedicated/trusted VLAN</b>.</li>
+<li><b>Firewall port 9170</b> so only the Director's IP can reach it; <b>never port-forward it</b>.</li>
+<li>Prefer wired Ethernet; rotate the token (<code>system-bridge client token</code>) if exposed.</li>
+</ul>
+<p><b>This developer driver is unencrypted</b>, so a real token is stored in cleartext in the
+Director project database and in every project backup. For production, install an <b>encrypted
+release build</b> and do not share backups taken with a real token configured.</p>
+<p><b>Privacy:</b> uptime, CPU/GPU temperature, usage, hostname, MAC, and now-playing are pulled
+from System Bridge; hostname/now-playing/current-game persist in Control4 variables (and thus in
+the Director DB and backups). The driver only sends <code>steam://</code> URIs to the machine
+(other schemes are rejected) and sanitizes incoming data. Full threat model: see SECURITY.md in
+the driver package repository.</p>
+
 <h2>Notes and limitations</h2>
 <ul>
 <li>Transport keys map to System Bridge media control (MPRIS/playerctl) - they control media

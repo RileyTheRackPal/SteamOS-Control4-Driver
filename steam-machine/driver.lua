@@ -33,6 +33,15 @@ do -- constants
 	URI_LIBRARY = 'steam://open/games'
 	URI_SETTINGS = 'steam://open/settings'
 
+	-- Only these URI schemes may be sent to System Bridge OPEN. OPEN runs
+	-- xdg-open on the target, so an unrestricted URI could open file:// paths
+	-- (e.g. the System Bridge token file) or trigger app/desktop URI handlers
+	-- that execute code. Keep this to steam:// unless you deliberately ship
+	-- documented https deep-links (then add https = true).
+	ALLOWED_URI_SCHEMES = { steam = true }
+
+	MAX_VAR_LEN = 256			-- cap for strings we copy from System Bridge into Control4 variables
+
 	LAUNCH_GRACE_SECONDS = 15	-- suppress Big Picture launch right after a game launch
 	STALE_SECONDS = 180			-- no traffic for this long -> force reconnect
 end
@@ -85,6 +94,24 @@ local function setVarNum (name, value)
 	if (type (value) == 'number') then
 		SetVariable (name, tostring (math.floor (value + 0.5)))
 	end
+end
+
+-- Sanitize a string that came from System Bridge (untrusted: plaintext ws://,
+-- all-origins server) before writing it into a Control4 variable that user
+-- programming may consume. Strip control chars and cap the length.
+local function safeStr (s)
+	s = tostring (s or ''):gsub ('%c', ' ')
+	if (#s > MAX_VAR_LEN) then
+		s = s:sub (1, MAX_VAR_LEN)
+	end
+	return s
+end
+
+-- Extract the lowercased scheme of a "<scheme>://..." URI, or nil if the value
+-- is not in that form (a bare path or schemeless string fails closed).
+local function uriScheme (uri)
+	local scheme = tostring (uri or ''):match ('^(%a[%w+.-]*)://')
+	return scheme and scheme:lower ()
 end
 
 local function uptimeText (seconds)
@@ -153,6 +180,11 @@ OPC = OPC or {}
 
 function OPC.Debug_Mode (value)
 	DEBUGPRINT = (value == 'Print')
+	-- Never let the vendored WebSocket lib log raw frames: every outbound frame
+	-- contains the System Bridge token, so frame logging would leak it to the
+	-- Director log. Our own dbg() output never includes the token.
+	DEBUG_WEBSOCKET = false
+	DEBUG_RFN = false
 end
 
 function OPC.System_Bridge_Token (value)
@@ -360,9 +392,14 @@ function SBMedia (action)
 end
 
 function SBKey (key)
-	if (trim (key) ~= '') then
-		return SBSend ('KEYBOARD_KEYPRESS', { key = trim (key), delay = 0 })
+	key = trim (key):lower ()
+	-- robotgo key tokens are short alphanumerics ('a', 'enter', 'f1', 'esc').
+	-- Constrain to that charset so a stray/hostile value can't smuggle anything
+	-- unexpected into the injection call.
+	if (key ~= '' and #key <= 16 and key:match ('^[%w_]+$')) then
+		return SBSend ('KEYBOARD_KEYPRESS', { key = key, delay = 0 })
 	end
+	dbg ('SBKey rejected key token: ' .. tostring (key))
 end
 
 function OnWsMessage (data)
@@ -426,7 +463,7 @@ function HandleModule (module, data)
 			SetVariable ('UPTIME_TEXT', uptimeText (data.uptime))
 		end
 		if (data.hostname) then
-			SetVariable ('HOSTNAME', tostring (data.hostname))
+			SetVariable ('HOSTNAME', safeStr (data.hostname))
 		end
 		local mac = normalizeMac (data.mac_address)
 		if (mac ~= '') then
@@ -475,9 +512,9 @@ function HandleModule (module, data)
 		if (artist ~= '' and title ~= '') then
 			nowPlaying = title .. ' - ' .. artist
 		end
-		SetVariable ('NOW_PLAYING', nowPlaying)
+		SetVariable ('NOW_PLAYING', safeStr (nowPlaying))
 
-		local status = tostring (data.status or '')
+		local status = tostring (data.status or ''):gsub ('%c', ''):sub (1, 32)
 		if (status ~= '' and status ~= g_lastMediaStatus) then
 			g_lastMediaStatus = status
 			SetVariable ('MEDIA_STATUS', status)
@@ -571,11 +608,21 @@ function LaunchURI (uri, friendlyName)
 		return
 	end
 
+	-- Fail closed on any scheme we don't explicitly allow. System Bridge OPEN
+	-- is xdg-open-backed, so this is the gate that stops file:// / app-handler
+	-- URIs from reaching the Steam Machine (single choke point for every
+	-- caller: Open URI, Launch Steam Game, mini-app SET_INPUT, URI_CMD_MAP).
+	local scheme = uriScheme (uri)
+	if (not (scheme and ALLOWED_URI_SCHEMES [scheme])) then
+		dbg ('LaunchURI rejected non-allowlisted URI: ' .. uri)
+		return
+	end
+
 	CancelTimer ('DeferredOff')
 
-	if (uri:find ('^steam://')) then
+	if (scheme == 'steam') then
 		g_lastGameLaunch = os.time ()
-		SetVariable ('CURRENT_GAME', friendlyName or uri)
+		SetVariable ('CURRENT_GAME', safeStr (friendlyName or uri))
 	end
 
 	if (g_online) then

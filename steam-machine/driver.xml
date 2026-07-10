@@ -176,7 +176,7 @@
 			</command>
 			<command>
 				<name>Open URI</name>
-				<description>Open URI PARAM1 on NAME (steam://, http://, etc.)</description>
+				<description>Open steam:// URI PARAM1 on NAME (only steam:// URIs are honored for security)</description>
 				<sort_order>8</sort_order>
 				<params>
 					<param>

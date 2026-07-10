@@ -6,5 +6,36 @@ ExecStart=%h/c4pad/c4pad daemon
 Restart=on-failure
 RestartSec=2
 
+# Sandboxing (defense-in-depth): shrink the blast radius of any future daemon
+# compromise. The daemon needs only /dev/uinput and an AF_UNIX socket in
+# $XDG_RUNTIME_DIR (=/run/user/<uid>), and its binary lives under $HOME — so we
+# deliberately do NOT use ProtectHome or ProtectSystem=strict, which would make
+# /run/user (the socket) and/or $HOME (the binary) inaccessible and stop the
+# service from starting. ProtectSystem=full still read-only-protects /usr /boot
+# /etc, and InaccessiblePaths hides just the System Bridge token directory.
+NoNewPrivileges=yes
+ProtectSystem=full
+InaccessiblePaths=-%h/.local/share/system-bridge
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallArchitectures=native
+# keep /dev/uinput reachable (do NOT set PrivateDevices=yes — it hides uinput)
+DevicePolicy=closed
+DeviceAllow=/dev/uinput rw
+# If the daemon fails to start after install (systemctl --user status c4pad shows
+# a sandbox-related failure), comment out SystemCallFilter and
+# RestrictAddressFamilies first — they are the strictest lines here.
+
 [Install]
 WantedBy=default.target

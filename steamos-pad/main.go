@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -36,6 +37,14 @@ import (
 )
 
 const version = "1.0.0"
+
+// A valid command line ("hold right\n") is well under this; cap the read so a
+// client that never sends a newline cannot make us buffer unboundedly.
+const maxCmdBytes = 128
+
+// Cap concurrent connection handlers so a local client cannot exhaust
+// goroutines/FDs by holding many slow connections open at once.
+const maxConcurrentConns = 8
 
 // Identity per the kernel xpad driver table so Steam/SDL auto-map the pad
 // (drivers/input/joystick/xpad.c: 0x045e/0x028e "Microsoft X-Box 360 pad").
@@ -72,7 +81,7 @@ var hatOpposite = map[string]string{
 	"up": "down", "down": "up", "left": "right", "right": "left",
 }
 
-func socketPath() string {
+func runtimeDir() string {
 	dir := os.Getenv("XDG_RUNTIME_DIR")
 	if dir == "" {
 		// never fall back to world-writable /tmp: the name would be squattable
@@ -80,7 +89,39 @@ func socketPath() string {
 		fmt.Fprintln(os.Stderr, "c4pad: XDG_RUNTIME_DIR is not set; run from a systemd user unit or a logind session")
 		os.Exit(1)
 	}
-	return filepath.Join(dir, "c4pad.sock")
+	return dir
+}
+
+func socketPath() string {
+	return filepath.Join(runtimeDir(), "c4pad.sock")
+}
+
+// assertOwnerPrivateDir refuses to run unless the socket's parent directory is
+// a real dir, owned by us, with no group/other bits. This closes socket-path
+// squat/rename/TOCTOU vectors on the .sock and .lock files if XDG_RUNTIME_DIR
+// is ever pointed at a shared/world-traversable path. Under a logind session /
+// systemd user unit (the only supported launch path) /run/user/<uid> is 0700
+// and this always passes.
+func assertOwnerPrivateDir(dir string) {
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "c4pad: cannot stat "+dir+": "+err.Error())
+		os.Exit(1)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+		fmt.Fprintln(os.Stderr, "c4pad: "+dir+" is not a real directory")
+		os.Exit(1)
+	}
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+		if int(st.Uid) != os.Getuid() {
+			fmt.Fprintln(os.Stderr, "c4pad: "+dir+" is not owned by the current user")
+			os.Exit(1)
+		}
+	}
+	if fi.Mode().Perm()&0o077 != 0 {
+		fmt.Fprintln(os.Stderr, "c4pad: "+dir+" is group/other-accessible; refusing (socket would not be private)")
+		os.Exit(1)
+	}
 }
 
 func main() {
@@ -151,6 +192,7 @@ type daemon struct {
 	held        map[string]time.Time // button/hat token -> time held (for dead-man release)
 	tapDelay    time.Duration
 	holdTimeout time.Duration
+	sem         chan struct{} // bounds concurrent connection handlers
 }
 
 func runDaemon(args []string) {
@@ -159,6 +201,7 @@ func runDaemon(args []string) {
 	tapDelay := fs.Duration("tap", 40*time.Millisecond, "duration a 'press' holds the button down")
 	_ = fs.Parse(args)
 
+	assertOwnerPrivateDir(runtimeDir())
 	sock := socketPath()
 
 	// single-instance guard: flock is atomic and auto-released on process
@@ -189,6 +232,7 @@ func runDaemon(args []string) {
 		held:        map[string]time.Time{},
 		tapDelay:    *tapDelay,
 		holdTimeout: *holdTimeout,
+		sem:         make(chan struct{}, maxConcurrentConns),
 	}
 
 	// owner-only socket: restrict via umask during listen, then verify
@@ -238,7 +282,17 @@ func runDaemon(args []string) {
 			// listener closed during shutdown
 			return
 		}
-		go d.handle(conn)
+		select {
+		case d.sem <- struct{}{}:
+			go func() {
+				defer func() { <-d.sem }()
+				d.handle(conn)
+			}()
+		default:
+			// at capacity: drop rather than pile up goroutines
+			_, _ = conn.Write([]byte("err busy\n"))
+			_ = conn.Close()
+		}
 	}
 }
 
@@ -246,8 +300,10 @@ func (d *daemon) handle(conn net.Conn) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 
-	line, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil {
+	// bound the read so a client that never sends a newline can't make us
+	// buffer unboundedly (local memory-exhaustion DoS)
+	line, err := bufio.NewReader(io.LimitReader(conn, maxCmdBytes)).ReadString('\n')
+	if err != nil && line == "" {
 		return
 	}
 	fields := strings.Fields(strings.ToLower(line))
