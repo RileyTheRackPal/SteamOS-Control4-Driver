@@ -74,6 +74,11 @@ end-user system.** In short:
 - "Notification Sent" event fires for notifications sent *by Control4*; System Bridge does not report other desktop notifications
 - The token is stored in Director's **encrypted PersistData** (not in a cleartext property); see [SECURITY.md](SECURITY.md). The developer `.c4z` is unsigned/unencrypted (Composer treats it as a developer driver) — optionally encrypt it with the free DriverPackager to also hide the source, but note driver encryption protects the *code*, not the stored token
 
+## Reference
+
+- [docs/PROGRAMMING_REFERENCE.md](docs/PROGRAMMING_REFERENCE.md) — events, device commands, and variables in Composer's Programming view
+- [docs/GENERATED_DRIVERS.md](docs/GENERATED_DRIVERS.md) — the game mini-drivers `make-game-drivers.ps1` produces (top-50 + all Valve titles)
+
 ## Implementation notes
 
 - WebSocket client + dispatch layers are the official Snap One [drivers-common-public](https://github.com/control4/drivers-common-public) libraries, vendored under `steam-machine/drivers-common-public/`
