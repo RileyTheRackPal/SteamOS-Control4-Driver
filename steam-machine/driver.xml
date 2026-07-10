@@ -137,6 +137,82 @@
 					<item>Print</item>
 				</items>
 			</property>
+			<property>
+				<name>Red Button Action</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Steam Menu</default>
+				<items>
+					<item>None</item>
+					<item>Steam Menu</item>
+					<item>Quick Access Menu</item>
+					<item>Toggle On-Screen Keyboard</item>
+					<item>Screenshot</item>
+					<item>Toggle Magnifier</item>
+					<item>Force Quit Game</item>
+					<item>Launch Big Picture</item>
+					<item>Media Play/Pause</item>
+					<item>Fire Programming Event</item>
+				</items>
+				<tooltip>Action run by the "Red Button" command (program the navigator's red button to it). Chord actions (keyboard, quick access, screenshot, magnifier, force quit) need the c4pad Gamepad Bridge.</tooltip>
+			</property>
+			<property>
+				<name>Green Button Action</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Quick Access Menu</default>
+				<items>
+					<item>None</item>
+					<item>Steam Menu</item>
+					<item>Quick Access Menu</item>
+					<item>Toggle On-Screen Keyboard</item>
+					<item>Screenshot</item>
+					<item>Toggle Magnifier</item>
+					<item>Force Quit Game</item>
+					<item>Launch Big Picture</item>
+					<item>Media Play/Pause</item>
+					<item>Fire Programming Event</item>
+				</items>
+				<tooltip>Action run by the "Green Button" command.</tooltip>
+			</property>
+			<property>
+				<name>Yellow Button Action</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Toggle On-Screen Keyboard</default>
+				<items>
+					<item>None</item>
+					<item>Steam Menu</item>
+					<item>Quick Access Menu</item>
+					<item>Toggle On-Screen Keyboard</item>
+					<item>Screenshot</item>
+					<item>Toggle Magnifier</item>
+					<item>Force Quit Game</item>
+					<item>Launch Big Picture</item>
+					<item>Media Play/Pause</item>
+					<item>Fire Programming Event</item>
+				</items>
+				<tooltip>Action run by the "Yellow Button" command.</tooltip>
+			</property>
+			<property>
+				<name>Blue Button Action</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Screenshot</default>
+				<items>
+					<item>None</item>
+					<item>Steam Menu</item>
+					<item>Quick Access Menu</item>
+					<item>Toggle On-Screen Keyboard</item>
+					<item>Screenshot</item>
+					<item>Toggle Magnifier</item>
+					<item>Force Quit Game</item>
+					<item>Launch Big Picture</item>
+					<item>Media Play/Pause</item>
+					<item>Fire Programming Event</item>
+				</items>
+				<tooltip>Action run by the "Blue Button" command.</tooltip>
+			</property>
 		</properties>
 		<actions>
 			<action>
@@ -310,6 +386,56 @@
 					</param>
 				</params>
 			</command>
+			<command>
+				<name>Red Button</name>
+				<description>Run the Red Button Action on NAME (program the navigator's red button to this)</description>
+				<sort_order>19</sort_order>
+			</command>
+			<command>
+				<name>Green Button</name>
+				<description>Run the Green Button Action on NAME (program the navigator's green button to this)</description>
+				<sort_order>20</sort_order>
+			</command>
+			<command>
+				<name>Yellow Button</name>
+				<description>Run the Yellow Button Action on NAME (program the navigator's yellow button to this)</description>
+				<sort_order>21</sort_order>
+			</command>
+			<command>
+				<name>Blue Button</name>
+				<description>Run the Blue Button Action on NAME (program the navigator's blue button to this)</description>
+				<sort_order>22</sort_order>
+			</command>
+			<command>
+				<name>Steam Menu</name>
+				<description>Open the Steam menu on NAME (Guide button)</description>
+				<sort_order>23</sort_order>
+			</command>
+			<command>
+				<name>Quick Access Menu</name>
+				<description>Open the Quick Access menu on NAME (Steam+A; requires c4pad Gamepad Bridge)</description>
+				<sort_order>24</sort_order>
+			</command>
+			<command>
+				<name>Toggle On-Screen Keyboard</name>
+				<description>Toggle the on-screen keyboard on NAME (Steam+X; requires c4pad Gamepad Bridge)</description>
+				<sort_order>25</sort_order>
+			</command>
+			<command>
+				<name>Screenshot</name>
+				<description>Take a screenshot on NAME (Steam+R1; requires c4pad Gamepad Bridge)</description>
+				<sort_order>26</sort_order>
+			</command>
+			<command>
+				<name>Toggle Magnifier</name>
+				<description>Toggle the magnifier on NAME (Steam+L1; requires c4pad Gamepad Bridge)</description>
+				<sort_order>27</sort_order>
+			</command>
+			<command>
+				<name>Force Quit Game</name>
+				<description>Force-quit the running game on NAME (Steam+B held; requires c4pad Gamepad Bridge)</description>
+				<sort_order>28</sort_order>
+			</command>
 		</commands>
 	</config>
 	<proxies qty="2">
@@ -361,6 +487,26 @@
 			<id>9</id>
 			<name>Media Stopped</name>
 			<description>When media stops on NAME</description>
+		</event>
+		<event>
+			<id>10</id>
+			<name>Red Button Pressed</name>
+			<description>When the Red Button command runs on NAME with action set to Fire Programming Event</description>
+		</event>
+		<event>
+			<id>11</id>
+			<name>Green Button Pressed</name>
+			<description>When the Green Button command runs on NAME with action set to Fire Programming Event</description>
+		</event>
+		<event>
+			<id>12</id>
+			<name>Yellow Button Pressed</name>
+			<description>When the Yellow Button command runs on NAME with action set to Fire Programming Event</description>
+		</event>
+		<event>
+			<id>13</id>
+			<name>Blue Button Pressed</name>
+			<description>When the Blue Button command runs on NAME with action set to Fire Programming Event</description>
 		</event>
 	</events>
 	<connections>

@@ -73,12 +73,32 @@ ALLOW="$HERE/c4pad-allowlist.json"
 		printf '  {"id":"c4pad_%s_%s","name":"c4pad %s %s","command":"%s/c4pad","workingDir":"%s","arguments":["%s","%s"]}' \
 			"$1" "$2" "$1" "$2" "$INSTALL_DIR" "$INSTALL_DIR" "$1" "$2"
 	}
+	# emit_raw <id> <name> <arg>...  (for variable-length argv like chords)
+	emit_raw() {
+		local id="$1" nm="$2"; shift 2
+		[ $first -eq 1 ] && first=0 || echo ','
+		local args=""
+		for a in "$@"; do
+			[ -n "$args" ] && args="$args,"
+			args="$args\"$a\""
+		done
+		printf '  {"id":"%s","name":"%s","command":"%s/c4pad","workingDir":"%s","arguments":[%s]}' \
+			"$id" "$nm" "$INSTALL_DIR" "$INSTALL_DIR" "$args"
+	}
 	for b in up down left right; do
 		emit press "$b"; emit hold "$b"; emit release "$b"
 	done
 	for b in a b x y lb rb start select guide; do
 		emit press "$b"
 	done
+	# Steam-button chord actions (RGBY button bindings). Steam menu = a ~100ms
+	# Guide hold (a 40ms tap may not register; a long hold shows the chord overlay).
+	emit_raw c4pad_steam      "c4pad Steam menu"     chord 100  guide
+	emit_raw c4pad_osk        "c4pad OSK toggle"     chord 130  guide x
+	emit_raw c4pad_qam        "c4pad Quick Access"   chord 130  guide a
+	emit_raw c4pad_screenshot "c4pad Screenshot"     chord 130  guide rb
+	emit_raw c4pad_magnifier  "c4pad Magnifier"      chord 130  guide lb
+	emit_raw c4pad_forcequit  "c4pad Force Quit"     chord 3000 guide b
 	echo ''
 	echo ']'
 } > "$ALLOW"
@@ -89,14 +109,15 @@ if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
 	# the backup sits next to the plaintext token file; do not leave it world-readable
 	( umask 077; cp -f "$SETTINGS" "$SETTINGS.bak" )
 	chmod --reference="$SETTINGS" "$SETTINGS.bak" 2>/dev/null || chmod 600 "$SETTINGS.bak"
-	# replace-by-prefix: drop all prior c4pad_* entries, append the fresh 21
-	# (idempotent re-install; foreign entries keep their order); preserve mode
+	# replace-by-prefix: drop all prior c4pad_* entries, append the freshly
+	# generated c4pad_* set (idempotent re-install; foreign entries keep their
+	# order); preserve mode
 	if jq --slurpfile new "$ALLOW" \
 		'.commands.allowlist = (((.commands.allowlist // []) | map(select(((.id // "") | startswith("c4pad_")) | not))) + $new[0])' \
 		"$SETTINGS" > "$SETTINGS.tmp" \
 		&& chmod --reference="$SETTINGS" "$SETTINGS.tmp"; then
 		mv "$SETTINGS.tmp" "$SETTINGS"
-		echo "merged 21 entries into $SETTINGS (backup: settings.json.bak)"
+		echo "merged c4pad_* entries into $SETTINGS (backup: settings.json.bak)"
 		echo "RESTART System Bridge to pick up the allowlist."
 	else
 		rm -f "$SETTINGS.tmp"
@@ -113,8 +134,13 @@ fi
 # 5) smoke test
 sleep 1
 if "$INSTALL_DIR/c4pad" ping >/dev/null 2>&1; then
-	echo "daemon reachable: OK. Try: $INSTALL_DIR/c4pad press guide (Steam menu should open)"
+	echo "daemon reachable: OK. Test a chord: $INSTALL_DIR/c4pad chord guide x (the on-screen keyboard should appear in game mode)"
 else
 	echo "daemon not reachable yet - check: systemctl --user status c4pad"
 fi
+echo ""
+echo "NOTE: the Steam-button chord actions (keyboard/quick-access/screenshot/etc.) require, in"
+echo "Steam game mode, Settings > Controller > 'Xbox/generic configuration support' ON (default)"
+echo "and the default Steam Button Chord layout. If a user customized those chords, rebind or"
+echo "adjust the c4pad_* allowlist entries to match."
 echo "== done =="

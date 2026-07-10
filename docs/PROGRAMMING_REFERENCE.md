@@ -16,6 +16,7 @@ tab (which is separate from Programming).
 | Media Started Playing | media begins playing (MPRIS) |
 | Media Paused | media is paused |
 | Media Stopped | media stops |
+| Red / Green / Yellow / Blue Button Pressed | the matching colored-button command runs while its action is set to **Fire Programming Event** (for fully custom programming) |
 
 ## Device commands — things you can make it do in a script
 
@@ -32,6 +33,30 @@ tab (which is separate from Programming).
 | Media Volume Up / Down / Mute | — (MPRIS player volume; Mute is one-way) |
 | Send Keyboard Key | Key (Desktop Mode; may not reach the game session) |
 | Press Gamepad Button | Button (needs the c4pad Gamepad Bridge) |
+| Red / Green / Yellow / Blue Button | — (runs that color's configured action — see below) |
+| Steam Menu | — (Guide button) |
+| Quick Access Menu | — (Steam+A; needs c4pad) |
+| Toggle On-Screen Keyboard | — (Steam+X; needs c4pad) |
+| Screenshot | — (Steam+R1; needs c4pad) |
+| Toggle Magnifier | — (Steam+L1; needs c4pad) |
+| Force Quit Game | — (Steam+B held; needs c4pad) |
+
+## Colored (RGBY) navigator buttons
+
+Control4's colored remote/touchscreen buttons are **physical programmable buttons** — Control4
+does not auto-route them to the driver. To use them: in Composer, **program the navigator's
+red/green/yellow/blue button to execute the matching command** on the Steam Machine
+(`Red Button`, `Green Button`, …).
+
+Each colored button's behavior is chosen by a **property dropdown** (System Design →
+`Red/Green/Yellow/Blue Button Action`) from: None, Steam Menu, Quick Access Menu, Toggle
+On-Screen Keyboard, Screenshot, Toggle Magnifier, Force Quit Game, Launch Big Picture, Media
+Play/Pause, or **Fire Programming Event** (which fires the matching event above so you can bind
+*any* Control4 programming). The chord actions (keyboard/quick-access/screenshot/magnifier/
+force-quit) require the c4pad Gamepad Bridge; Steam Menu / Big Picture / Play-Pause do not.
+
+The individual Steam actions are also exposed as standalone commands (Steam Menu, Quick Access
+Menu, …), so you can bind them to any navigator button or scene directly, not just the four colors.
 
 ## Variables — for conditionals and values
 

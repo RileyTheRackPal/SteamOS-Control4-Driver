@@ -1112,12 +1112,70 @@ local GAMEPAD_BUTTON_TOKENS = {
 	['Guide (Steam)'] = 'guide',
 }
 
+-- Send a c4pad allowlist command by its ID and track it for the missing/fail
+-- fallback (a no-op if the Gamepad Bridge is not installed).
+function PadCmd (commandID)
+	local id = SBSend ('COMMAND_EXECUTE', { commandID = commandID })
+	if (id) then
+		g_pendingPad [id] = { cmd = commandID, ts = os.time () }
+	end
+end
+
 function EC.Press_Gamepad_Button (tParams)
 	local token = GAMEPAD_BUTTON_TOKENS [tParams.BUTTON or '']
 	if (token) then
-		local id = SBSend ('COMMAND_EXECUTE', { commandID = 'c4pad_press_' .. token })
-		if (id) then
-			g_pendingPad [id] = { cmd = 'BUTTON_' .. token, ts = os.time () }
-		end
+		PadCmd ('c4pad_press_' .. token)
 	end
 end
+
+---------------------------------------------------------------------------
+-- Steam UI actions + colored (RGBY) navigator buttons
+---------------------------------------------------------------------------
+-- The chord actions require the c4pad Gamepad Bridge (they are Steam-button
+-- combos on the virtual pad). Launch Big Picture / Media Play/Pause go over
+-- System Bridge directly and work without c4pad.
+local STEAM_ACTIONS = {
+	['Steam Menu']                = function () PadCmd ('c4pad_steam') end,
+	['Quick Access Menu']         = function () PadCmd ('c4pad_qam') end,
+	['Toggle On-Screen Keyboard'] = function () PadCmd ('c4pad_osk') end,
+	['Screenshot']                = function () PadCmd ('c4pad_screenshot') end,
+	['Toggle Magnifier']          = function () PadCmd ('c4pad_magnifier') end,
+	['Force Quit Game']           = function () PadCmd ('c4pad_forcequit') end,
+	['Launch Big Picture']        = function () LaunchURI (URI_BIG_PICTURE) end,
+	['Media Play/Pause']          = function () SBMedia ('PLAY') end,
+}
+
+function SteamAction (name)
+	local f = STEAM_ACTIONS [name]
+	if (f) then
+		f ()
+	else
+		dbg ('Unknown Steam action: ' .. tostring (name))
+	end
+end
+
+-- A colored button command runs the action chosen in its property, or fires a
+-- programming event if set to Custom.
+function RunButtonAction (color)
+	local action = Properties [color .. ' Button Action'] or 'None'
+	if (action == 'None') then
+		return
+	elseif (action == 'Fire Programming Event') then
+		C4:FireEvent (color .. ' Button Pressed')
+	else
+		SteamAction (action)
+	end
+end
+
+function EC.Red_Button (tParams)    RunButtonAction ('Red') end
+function EC.Green_Button (tParams)  RunButtonAction ('Green') end
+function EC.Yellow_Button (tParams) RunButtonAction ('Yellow') end
+function EC.Blue_Button (tParams)   RunButtonAction ('Blue') end
+
+-- standalone action commands (bind any navigator button / scene directly)
+function EC.Steam_Menu (tParams)                 SteamAction ('Steam Menu') end
+function EC.Quick_Access_Menu (tParams)          SteamAction ('Quick Access Menu') end
+EC ['Toggle_On-Screen_Keyboard'] = function (tParams) SteamAction ('Toggle On-Screen Keyboard') end
+function EC.Screenshot (tParams)                 SteamAction ('Screenshot') end
+function EC.Toggle_Magnifier (tParams)           SteamAction ('Toggle Magnifier') end
+function EC.Force_Quit_Game (tParams)            SteamAction ('Force Quit Game') end

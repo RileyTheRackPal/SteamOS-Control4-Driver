@@ -54,6 +54,27 @@ spawning host binaries.
 ~/c4pad/c4pad press down     # D-pad down in the UI
 ```
 
+## Steam-button chords (RGBY actions)
+
+Beyond single buttons, c4pad can emit **Steam-button combos** for the driver's colored-button
+actions. The installer adds these allowlist entries (each is `c4pad chord [holdMs] guide <btn>`):
+
+| Command ID | Chord | Steam function |
+|---|---|---|
+| `c4pad_osk` | Steam + X | toggle on-screen keyboard |
+| `c4pad_qam` | Steam + A | Quick Access menu |
+| `c4pad_screenshot` | Steam + R1 | screenshot |
+| `c4pad_magnifier` | Steam + L1 | toggle magnifier |
+| `c4pad_forcequit` | Steam + B (3s) | force-quit game |
+
+CLI: `c4pad chord guide x` (default ~130 ms hold) or `c4pad chord 3000 guide b` (explicit hold).
+Verify with `~/c4pad/c4pad chord guide x` (the OSK should appear).
+
+**Prerequisites for chords** (Steam game mode): Settings → Controller → **Xbox/generic
+configuration support** must be ON (the default), and the **default Steam Button Chord layout**
+in use. If a user changed those, the chords won't match — rebind them or edit the `c4pad_*`
+allowlist entries. Quick Access (Guide+A) is game-mode-only.
+
 ## Button map (Control4 -> pad)
 
 | Navigator | Pad | | Navigator | Pad |

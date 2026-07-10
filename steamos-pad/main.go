@@ -10,6 +10,7 @@
 //
 //	c4pad daemon [-hold-timeout 5s] [-tap 40ms]
 //	c4pad press|hold|release <button>
+//	c4pad chord [holdMs] <button>...   (Steam-button combo, e.g. "chord guide x")
 //	c4pad releaseall | ping | version
 //
 // Buttons: up down left right (D-pad hat), a b x y, lb rb, start select guide, l3 r3
@@ -28,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -45,6 +47,15 @@ const maxCmdBytes = 128
 // Cap concurrent connection handlers so a local client cannot exhaust
 // goroutines/FDs by holding many slow connections open at once.
 const maxConcurrentConns = 8
+
+// Default hold for a chord (Steam-button combo). Steam Input samples evdev state
+// per SYN, so the buttons must be co-held across at least one poll cycle; ~130ms
+// is a safe default. A long hold (e.g. force-quit) is passed explicitly.
+const defaultChordHoldMs = 130
+
+// Upper bound on an explicit chord hold, so a socket request can't make the
+// daemon block (holding a button down) for an unreasonable time.
+const maxChordHoldMs = 6000
 
 // Identity per the kernel xpad driver table so Steam/SDL auto-map the pad
 // (drivers/input/joystick/xpad.c: 0x045e/0x028e "Microsoft X-Box 360 pad").
@@ -139,6 +150,13 @@ func main() {
 			os.Exit(2)
 		}
 		clientSend(os.Args[1] + " " + strings.ToLower(os.Args[2]))
+	case "chord":
+		// chord [holdMs] <button> <button> ...  (Steam-button combos, e.g. guide x)
+		if len(os.Args) < 3 {
+			usage()
+			os.Exit(2)
+		}
+		clientSend(strings.ToLower(strings.Join(os.Args[1:], " ")))
 	case "releaseall", "ping":
 		clientSend(os.Args[1])
 	case "version":
@@ -150,7 +168,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: c4pad daemon [-hold-timeout D] [-tap D] | press|hold|release <button> | releaseall | ping | version")
+	fmt.Fprintln(os.Stderr, "usage: c4pad daemon [-hold-timeout D] [-tap D] | press|hold|release <button> | chord [holdMs] <button>... | releaseall | ping | version")
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +182,18 @@ func clientSend(line string) {
 		os.Exit(1)
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+	// A chord holds its buttons for up to holdMs before the daemon replies, so
+	// the read deadline must exceed the hold (a 3s force-quit would otherwise
+	// time out and exit non-zero even though the chord fired).
+	readTimeout := 3 * time.Second
+	if f := strings.Fields(line); len(f) >= 2 && f[0] == "chord" {
+		hold := defaultChordHoldMs
+		if ms, err := strconv.Atoi(f[1]); err == nil {
+			hold = ms
+		}
+		readTimeout = time.Duration(hold)*time.Millisecond + 2*time.Second
+	}
+	_ = conn.SetDeadline(time.Now().Add(readTimeout))
 
 	if _, err := conn.Write([]byte(line + "\n")); err != nil {
 		fmt.Fprintln(os.Stderr, "write failed: "+err.Error())
@@ -306,7 +335,9 @@ func (d *daemon) handle(conn net.Conn) {
 			fmt.Fprintln(os.Stderr, "c4pad: handler panic recovered:", r)
 		}
 	}()
-	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+	// must exceed the longest possible chord hold so the reply (written after the
+	// hold) is never cut off by this deadline
+	_ = conn.SetDeadline(time.Now().Add(time.Duration(maxChordHoldMs+2000) * time.Millisecond))
 
 	// bound the read so a client that never sends a newline can't make us
 	// buffer unboundedly (local memory-exhaustion DoS)
@@ -323,6 +354,12 @@ func (d *daemon) handle(conn net.Conn) {
 	case len(fields) == 1 && fields[0] == "releaseall":
 		d.releaseAll()
 		reply = "ok"
+	case len(fields) >= 2 && fields[0] == "chord":
+		if err := d.chord(fields[1:]); err != nil {
+			reply = "err " + err.Error()
+		} else {
+			reply = "ok"
+		}
 	case len(fields) == 2:
 		if err := d.execute(fields[0], fields[1]); err != nil {
 			reply = "err " + err.Error()
@@ -380,6 +417,74 @@ func (d *daemon) execute(action, token string) error {
 		return d.pad.ButtonUp(code)
 	}
 	return fmt.Errorf("unknown action %q", action)
+}
+
+// chord presses several buttons together (a Steam-button combo like "guide x"),
+// holds them, then releases in reverse order. An optional leading integer is the
+// hold in ms (e.g. "3000 guide b" for force-quit). Guide is pressed first and
+// released last so Steam sees the modifier before/after the action button.
+func (d *daemon) chord(args []string) error {
+	holdMs := defaultChordHoldMs
+	tokens := args
+	if n, err := strconv.Atoi(args[0]); err == nil {
+		if n < 0 || n > maxChordHoldMs {
+			return fmt.Errorf("hold %d out of range", n)
+		}
+		holdMs = n
+		tokens = args[1:]
+	}
+	if len(tokens) == 0 {
+		return fmt.Errorf("no buttons")
+	}
+
+	// validate everything before touching the pad
+	type key struct {
+		isHat bool
+		hat   uinput.HatDirection
+		code  int
+	}
+	keys := make([]key, 0, len(tokens))
+	for _, t := range tokens {
+		if h, ok := hatDirections[t]; ok {
+			keys = append(keys, key{isHat: true, hat: h})
+		} else if c, ok := buttonCodes[t]; ok {
+			keys = append(keys, key{code: c})
+		} else {
+			return fmt.Errorf("unknown button %q", t)
+		}
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	press := func(k key) error {
+		if k.isHat {
+			return d.pad.HatPress(k.hat)
+		}
+		return d.pad.ButtonDown(k.code)
+	}
+	release := func(k key) {
+		if k.isHat {
+			_ = d.pad.HatRelease(k.hat)
+		} else {
+			_ = d.pad.ButtonUp(k.code)
+		}
+	}
+
+	for _, k := range keys {
+		if err := press(k); err != nil {
+			// best-effort unwind so we never leave a chord stuck
+			for _, kk := range keys {
+				release(kk)
+			}
+			return err
+		}
+	}
+	time.Sleep(time.Duration(holdMs) * time.Millisecond)
+	for i := len(keys) - 1; i >= 0; i-- {
+		release(keys[i])
+	}
+	return nil
 }
 
 func (d *daemon) releaseToken(token string) {
