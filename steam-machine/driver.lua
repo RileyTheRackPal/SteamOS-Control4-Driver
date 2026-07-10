@@ -393,10 +393,11 @@ end
 
 function SBKey (key)
 	key = trim (key):lower ()
-	-- robotgo key tokens are short alphanumerics ('a', 'enter', 'f1', 'esc').
-	-- Constrain to that charset so a stray/hostile value can't smuggle anything
-	-- unexpected into the injection call.
-	if (key ~= '' and #key <= 16 and key:match ('^[%w_]+$')) then
+	-- robotgo key tokens are short and drawn from a fixed vocabulary
+	-- ('a', 'enter', 'f1', 'audio_vol_up', 'num.', 'num+', 'lights_kbd_toggle').
+	-- Constrain to that shape so a stray/hostile value can't smuggle anything
+	-- unexpected into the injection call, while still admitting every real token.
+	if (key ~= '' and #key <= 24 and key:match ('^[%w_%.%+%*/%-]+$')) then
 		return SBSend ('KEYBOARD_KEYPRESS', { key = key, delay = 0 })
 	end
 	dbg ('SBKey rejected key token: ' .. tostring (key))

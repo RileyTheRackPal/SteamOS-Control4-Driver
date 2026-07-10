@@ -91,13 +91,17 @@ if command -v jq >/dev/null 2>&1 && [ -f "$SETTINGS" ]; then
 	chmod --reference="$SETTINGS" "$SETTINGS.bak" 2>/dev/null || chmod 600 "$SETTINGS.bak"
 	# replace-by-prefix: drop all prior c4pad_* entries, append the fresh 21
 	# (idempotent re-install; foreign entries keep their order); preserve mode
-	jq --slurpfile new "$ALLOW" \
+	if jq --slurpfile new "$ALLOW" \
 		'.commands.allowlist = (((.commands.allowlist // []) | map(select(((.id // "") | startswith("c4pad_")) | not))) + $new[0])' \
 		"$SETTINGS" > "$SETTINGS.tmp" \
-		&& chmod --reference="$SETTINGS" "$SETTINGS.tmp" \
-		&& mv "$SETTINGS.tmp" "$SETTINGS"
-	echo "merged 21 entries into $SETTINGS (backup: settings.json.bak)"
-	echo "RESTART System Bridge to pick up the allowlist."
+		&& chmod --reference="$SETTINGS" "$SETTINGS.tmp"; then
+		mv "$SETTINGS.tmp" "$SETTINGS"
+		echo "merged 21 entries into $SETTINGS (backup: settings.json.bak)"
+		echo "RESTART System Bridge to pick up the allowlist."
+	else
+		rm -f "$SETTINGS.tmp"
+		echo "ERROR: allowlist merge failed; $SETTINGS left unchanged (backup at settings.json.bak)" >&2
+	fi
 else
 	cat <<EOF
 Could not auto-merge (jq missing or $SETTINGS not found).

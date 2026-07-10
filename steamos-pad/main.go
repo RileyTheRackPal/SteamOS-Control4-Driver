@@ -298,6 +298,14 @@ func runDaemon(args []string) {
 
 func (d *daemon) handle(conn net.Conn) {
 	defer conn.Close()
+	// No panic is reachable from socket input today, but a persistent daemon
+	// should degrade a future unexpected panic to a dropped connection rather
+	// than crash the whole process (and its virtual pad).
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, "c4pad: handler panic recovered:", r)
+		}
+	}()
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 
 	// bound the read so a client that never sends a newline can't make us
