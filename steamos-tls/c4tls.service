@@ -13,6 +13,8 @@ RestartSec=2
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
+# allow the cert dir to be written so a deleted cert self-heals on start
+ReadWritePaths=%h/c4tls
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

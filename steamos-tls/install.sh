@@ -33,19 +33,32 @@ rm -f "$INSTALL_DIR/c4tls"
 install -m 700 "$HERE/c4tls" "$INSTALL_DIR/c4tls"
 echo "installed $INSTALL_DIR/c4tls"
 
-# 2) generate the cert (with the LAN IP as CN + SAN) and print it for pinning
-if [ -n "$LAN_IP" ]; then
-	"$INSTALL_DIR/c4tls" -regen -certdir "$INSTALL_DIR" -san "$LAN_IP" >/dev/null 2>&1 || true
+# 2) cert: generate only if absent (re-running the installer must NOT rotate the
+#    cert and silently invalidate a pinned Server Certificate in Composer).
+#    Force rotation with C4TLS_REGEN=1. -regen generates and exits (no listen).
+SAN_ARGS=()
+[ -n "$LAN_IP" ] && SAN_ARGS=(-san "$LAN_IP")
+if [ "${C4TLS_REGEN:-0}" = "1" ] || [ ! -f "$INSTALL_DIR/cert.pem" ]; then
+	if ! "$INSTALL_DIR/c4tls" -regen -certdir "$INSTALL_DIR" "${SAN_ARGS[@]}"; then
+		echo "ERROR: certificate generation failed" >&2; exit 1
+	fi
 else
-	"$INSTALL_DIR/c4tls" -regen -certdir "$INSTALL_DIR" >/dev/null 2>&1 || true
+	echo "keeping existing cert (set C4TLS_REGEN=1 to rotate)"
 fi
-chmod 600 "$INSTALL_DIR/key.pem" 2>/dev/null || true
-chmod 644 "$INSTALL_DIR/cert.pem" 2>/dev/null || true
+if [ ! -f "$INSTALL_DIR/cert.pem" ]; then
+	echo "ERROR: no certificate at $INSTALL_DIR/cert.pem" >&2; exit 1
+fi
+chmod 600 "$INSTALL_DIR/key.pem"
+chmod 644 "$INSTALL_DIR/cert.pem"
 
 # 3) systemd user unit (survives updates, autostarts in game mode)
 mkdir -p "$UNIT_DIR"
-# stamp the detected port/certdir into the unit
-sed "s/-listen :9171/-listen :$LISTEN_PORT/" "$HERE/c4tls.service" > "$UNIT_DIR/c4tls.service"
+# stamp the detected port into the unit; anchor on the flag (not the value) and
+# verify the substitution took, so a future unit reformat can't silently ship 9171
+sed -E "s/-listen :[0-9]+/-listen :$LISTEN_PORT/" "$HERE/c4tls.service" > "$UNIT_DIR/c4tls.service"
+grep -q -- "-listen :$LISTEN_PORT" "$UNIT_DIR/c4tls.service" || {
+	echo "ERROR: failed to stamp listen port into the unit (ExecStart format changed?)" >&2; exit 1
+}
 systemctl --user daemon-reload
 systemctl --user enable c4tls.service
 systemctl --user restart c4tls.service
@@ -69,5 +82,5 @@ else
 fi
 echo ""
 echo "Certificate SHA-256 (verify it matches what the driver reports):"
-"$INSTALL_DIR/c4tls" -print-cert -certdir "$INSTALL_DIR" 2>/dev/null | grep -i sha256 || true
+"$INSTALL_DIR/c4tls" -print-cert -certdir "$INSTALL_DIR" 2>/dev/null | grep -i fingerprint || true
 echo "== done =="

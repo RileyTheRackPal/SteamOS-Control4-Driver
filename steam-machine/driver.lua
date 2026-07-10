@@ -62,6 +62,7 @@ do -- driver state
 	g_secMode = 'Plaintext (ws://)'	-- Connection Security property
 	g_tlsPort = SB_TLS_PORT
 	g_caReady = false				-- pinned cert written to sandbox
+	g_effectiveVerify = nil			-- actual TLS verify level in use: 'peer' | 'none' | nil (plaintext)
 	g_pendingLaunch = nil		-- URI to open once authenticated
 	g_lastGameLaunch = 0
 	g_lastMediaStatus = nil
@@ -297,19 +298,23 @@ end
 -- Build the WebSocket URL + TLS options for the current security mode.
 -- Plaintext -> ws://ip:9170 ; TLS modes -> wss://ip:tlsport via the c4tls proxy.
 function ConnectionConfig ()
+	local wssURL = 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH
 	if (g_secMode == 'TLS encrypt-only (wss://)') then
-		return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
-			{ VERIFY_MODE = 'none' }
+		g_effectiveVerify = 'none'
+		return wssURL, { VERIFY_MODE = 'none' }
 	elseif (g_secMode == 'TLS pinned (wss://)') then
 		if (g_caReady) then
-			return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
-				{ VERIFY_MODE = 'peer', CACERTFILE = './' .. CA_FILENAME }
+			g_effectiveVerify = 'peer'
+			return wssURL, { VERIFY_MODE = 'peer', CACERTFILE = './' .. CA_FILENAME }
 		end
-		-- pinned selected but no valid cert yet: encrypt-only rather than fail
+		-- pinned selected but no valid cert yet: encrypt-only rather than fail.
+		-- g_effectiveVerify records the DOWNGRADE so the status label makes the
+		-- missing MITM protection visible (not silent).
+		g_effectiveVerify = 'none-fallback'
 		dbg ('TLS pinned selected but no certificate set; using encrypt-only until a cert is pasted')
-		return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
-			{ VERIFY_MODE = 'none' }
+		return wssURL, { VERIFY_MODE = 'none' }
 	end
+	g_effectiveVerify = nil
 	return 'ws://' .. g_ip .. ':' .. SB_PORT .. SB_WS_PATH, nil
 end
 
@@ -357,7 +362,16 @@ function OnWsEstablished ()
 	g_lastRx = os.time ()
 	CancelTimer ('Reconnect')
 	local port = (g_secMode:find ('^TLS')) and g_tlsPort or SB_PORT
-	local enc = (g_secMode == 'Plaintext (ws://)') and 'plaintext' or 'TLS'
+	local enc
+	if (g_effectiveVerify == 'peer') then
+		enc = 'TLS pinned'
+	elseif (g_effectiveVerify == 'none') then
+		enc = 'TLS encrypt-only'
+	elseif (g_effectiveVerify == 'none-fallback') then
+		enc = 'TLS encrypt-only (PINNED SELECTED BUT NO CERTIFICATE - not MITM-protected)'
+	else
+		enc = 'plaintext'
+	end
 	UpdateProperty ('Network Connection', 'Online (' .. g_ip .. ':' .. port .. ', ' .. enc .. ')')
 	SBSubscribe ()
 end

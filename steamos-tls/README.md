@@ -65,9 +65,20 @@ controller:
   path uses `VERIFY_MODE='none'` and needs no cert.
 - Whether it matches the connect IP against the SAN (we put an IP SAN + CN=IP to
   cover both behaviors).
+- **TLS version**: the proxy floors at TLS 1.2 by default. Control4's documented
+  method enum tops out at `tlsv1_1` (defaulting to `sslv23`, which negotiates up),
+  so a current controller with a modern OpenSSL should reach 1.2 — but if the
+  handshake fails on old firmware, lower the floor: add `-min-tls 1.1` (or `1.0`)
+  to the `ExecStart` line in `~/.config/systemd/user/c4tls.service`, then
+  `systemctl --user daemon-reload && systemctl --user restart c4tls`. Even TLS 1.0
+  still encrypts the token (far better than plaintext) for this local-LAN use.
 
-If pinned mode won't connect, the driver logs it (Debug Mode = Print) and you can
-switch to encrypt-only with no cert.
+If pinned mode won't connect, the driver's Network Connection status shows the
+active mode (and flags a pinned→encrypt-only downgrade), and Debug Mode = Print
+logs details. You can always switch to encrypt-only with no cert.
+
+Re-running `install.sh` keeps the existing cert (so a pasted pin stays valid); set
+`C4TLS_REGEN=1` to deliberately rotate it (then re-paste the new cert).
 
 ## CLI
 

@@ -26,6 +26,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -55,6 +56,7 @@ func main() {
 	flag.Var(&sans, "san", "IP or hostname to include in the cert SAN (repeatable); include the LAN IP the Director connects to")
 	printCert := flag.Bool("print-cert", false, "print the certificate PEM and SHA-256 fingerprint, then exit")
 	regen := flag.Bool("regen", false, "regenerate the certificate even if one exists")
+	minTLS := flag.String("min-tls", "1.2", "minimum TLS version: 1.0, 1.1, or 1.2 (lower only if an old Control4 controller cannot negotiate 1.2)")
 	showVer := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 
@@ -76,11 +78,22 @@ func main() {
 		return
 	}
 
+	// -regen is an admin action: (re)generate the cert and EXIT (never start the
+	// proxy), so the installer can call it synchronously and then print the cert.
 	if *regen {
 		_ = os.Remove(certPath)
 		_ = os.Remove(keyPath)
+		if err := ensureCert(*certDir, certPath, keyPath, sans); err != nil {
+			fmt.Fprintln(os.Stderr, "cert error: "+err.Error())
+			os.Exit(1)
+		}
+		if pemBytes, err := os.ReadFile(certPath); err == nil {
+			printCertInfo(pemBytes)
+		}
+		return
 	}
 
+	// Normal (service) start: generate only if absent, then listen.
 	if err := ensureCert(*certDir, certPath, keyPath, sans); err != nil {
 		fmt.Fprintln(os.Stderr, "cert error: "+err.Error())
 		os.Exit(1)
@@ -92,9 +105,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	minVer := uint16(tls.VersionTLS12)
+	switch *minTLS {
+	case "1.0":
+		minVer = tls.VersionTLS10
+	case "1.1":
+		minVer = tls.VersionTLS11
+	case "1.2":
+		minVer = tls.VersionTLS12
+	default:
+		fmt.Fprintln(os.Stderr, "c4tls: unknown -min-tls "+*minTLS+"; using 1.2")
+	}
+
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   minVer,
 	}
 
 	ln, err := tls.Listen("tcp", *listen, tlsCfg)
@@ -114,7 +139,13 @@ func main() {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			return
+			if errors.Is(err, net.ErrClosed) {
+				return // listener closed (shutdown)
+			}
+			// transient accept error: log and keep serving
+			fmt.Fprintln(os.Stderr, "c4tls: accept error: "+err.Error())
+			time.Sleep(50 * time.Millisecond)
+			continue
 		}
 		go proxy(conn, *backend)
 	}
@@ -218,11 +249,9 @@ func ensureCert(dir, certPath, keyPath string, sans sanList) error {
 			tmpl.DNSNames = append(tmpl.DNSNames, s)
 		}
 	}
-	if len(tmpl.DNSNames) == 0 {
-		if host, err := os.Hostname(); err == nil && host != "" {
-			tmpl.DNSNames = append(tmpl.DNSNames, host)
-		}
-	}
+	// Deliberately no os.Hostname() fallback: the driver connects by IP, so an
+	// internal hostname SAN adds nothing and would leak the box name into the
+	// pinned cert.
 
 	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &key.PublicKey, key)
 	if err != nil {
