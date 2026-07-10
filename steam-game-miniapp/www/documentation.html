@@ -26,13 +26,17 @@ use the generator - it fetches the game's box art from Steam by App ID and build
 per-game driver:</p>
 <pre>pwsh tools/make-game-driver.ps1 -AppId 620            # Portal 2, art auto-fetched
 pwsh tools/make-game-driver.ps1 -AppId 292030 -Name "The Witcher 3" -Fit pad</pre>
-<p>This outputs <code>dist/steam-game-&lt;appid&gt;.c4z</code> with the box art as the Navigator
-icons and the App ID + name pre-filled, so on add it works with no further configuration - just
-bind its "Steam Game" connection to a free Game App slot on the Steam Machine driver.
-<code>-Fit crop</code> (default) fills the square tile; <code>-Fit pad</code> shows the whole
-capsule letterboxed. Art comes from Steam's public CDN (falls back through capsule/header if a
-game has no portrait art).</p>
+<p>This outputs <code>dist/steam-game-&lt;appid&gt;.c4z</code> with a square game icon as the
+Navigator icons and the App ID + name pre-filled, so on add it works with no further
+configuration - just bind its "Steam Game" connection to a free Game App slot on the Steam
+Machine driver. The icon uses the best square source available: the game's official 256px client
+icon, falling back to its logo on a backdrop, then a box-art crop. Force one with
+<code>-Style icon|logo|boxart</code>.</p>
+<p>To build many at once:</p>
+<pre>pwsh tools/make-game-drivers.ps1            # top-50 most-played + all Valve titles
+pwsh tools/make-game-drivers.ps1 -Valve     # just Valve titles
+pwsh tools/make-game-drivers.ps1 -AppIds 620,570,730</pre>
 <p>This blank template driver still works as-is (enter the App ID by hand); it just shows a
-generic icon instead of box art.</p>
+generic icon instead of a game icon.</p>
 </body>
 </html>

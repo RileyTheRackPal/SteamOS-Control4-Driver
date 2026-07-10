@@ -15,7 +15,9 @@ with per-game quick-launch **mini drivers** using Steam's `steam://` URI handlin
 | `tools/build.ps1` | - | Packages each driver folder into a `.c4z` under `dist/` |
 | `tools/build-c4pad.ps1` | - | Cross-compiles the c4pad SteamOS helper (static linux/amd64) |
 | `tools/build-c4tls.ps1` | - | Cross-compiles the c4tls TLS proxy (static linux/amd64) |
-| `tools/make-game-driver.ps1` | - | Builds a per-game mini-driver `.c4z` from a Steam AppID, with the game's box art fetched from Steam and baked in as the Navigator icons |
+| `tools/make-game-driver.ps1` | - | Builds one per-game mini-driver `.c4z` from a Steam AppID, with the game's square icon (official client icon → logo → box art) baked in as the Navigator icons |
+| `tools/make-game-drivers.ps1` | - | Batch-builds mini-drivers for the top-50 most-played games and/or all Valve titles |
+| `tools/steam-driver-lib.ps1` | - | Shared library used by the two generators (icon fetch/compositing + driver packaging) |
 | `tools/make-icons.ps1` | - | Regenerates the placeholder icons |
 
 ## Features
