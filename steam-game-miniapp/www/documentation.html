@@ -19,12 +19,20 @@ App ID from steamdb.info (e.g. <code>620</code> for Portal 2) or a full URI such
 then Refresh Navigators.</li>
 </ol>
 
-<h2>Custom icons (recommended)</h2>
-<p>To show game art in Navigators, make a copy of the .c4z per game: rename the file
-(e.g. <code>steam-game-portal2.c4z</code>), replace the images under
-<code>www/icons/device/experience_*.png</code> (70/90/300/512/1024 px), update the
-<code>&lt;name&gt;</code>/<code>&lt;model&gt;</code> and the five
-<code>controller://driver/steam-game-miniapp/...</code> icon URLs in driver.xml to the new
-file name, and bump <code>&lt;version&gt;</code>. Each renamed copy installs as its own driver.</p>
+<h2>Box art in Navigators (recommended)</h2>
+<p>Control4 Navigator tile icons are static and bound to the driver <i>type</i>, so real
+per-game box art means one driver per game with the art baked in. Rather than hand-edit icons,
+use the generator - it fetches the game's box art from Steam by App ID and builds a ready
+per-game driver:</p>
+<pre>pwsh tools/make-game-driver.ps1 -AppId 620            # Portal 2, art auto-fetched
+pwsh tools/make-game-driver.ps1 -AppId 292030 -Name "The Witcher 3" -Fit pad</pre>
+<p>This outputs <code>dist/steam-game-&lt;appid&gt;.c4z</code> with the box art as the Navigator
+icons and the App ID + name pre-filled, so on add it works with no further configuration - just
+bind its "Steam Game" connection to a free Game App slot on the Steam Machine driver.
+<code>-Fit crop</code> (default) fills the square tile; <code>-Fit pad</code> shows the whole
+capsule letterboxed. Art comes from Steam's public CDN (falls back through capsule/header if a
+game has no portrait art).</p>
+<p>This blank template driver still works as-is (enter the App ID by hand); it just shows a
+generic icon instead of box art.</p>
 </body>
 </html>
