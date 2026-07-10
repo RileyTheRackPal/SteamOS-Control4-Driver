@@ -51,7 +51,14 @@
 				<password>true</password>
 				<readonly>false</readonly>
 				<default></default>
-				<tooltip>Paste the token from the Steam Machine. Get it by running: system-bridge client token</tooltip>
+				<tooltip>Paste the token from the Steam Machine (system-bridge client token). On save it is stored ENCRYPTED in the Director and this field is cleared - it is never persisted in cleartext. See Token Status below.</tooltip>
+			</property>
+			<property>
+				<name>Token Status</name>
+				<type>STRING</type>
+				<readonly>true</readonly>
+				<default>Not set</default>
+				<tooltip>Whether an encrypted System Bridge token is stored. Use the Clear Stored Token action to remove it.</tooltip>
 			</property>
 			<property>
 				<name>Connection Security</name>
@@ -136,6 +143,11 @@
 				<name>Get MAC Address From Steam Machine</name>
 				<command>Get MAC Address</command>
 				<sort_order>0</sort_order>
+			</action>
+			<action>
+				<name>Clear Stored Token</name>
+				<command>Clear Stored Token</command>
+				<sort_order>4</sort_order>
 			</action>
 			<action>
 				<name>Test Connection</name>

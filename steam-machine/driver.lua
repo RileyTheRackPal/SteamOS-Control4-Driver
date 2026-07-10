@@ -26,6 +26,7 @@ do -- constants
 	SB_WS_PATH = '/api/websocket'
 	SB_MODULES = { 'system', 'cpu', 'memory', 'gpus', 'media', 'battery' }
 	CA_FILENAME = 'c4tls_ca.pem'	-- pinned cert written to the driver sandbox
+	PERSIST_TOKEN_KEY = 'sb_token'	-- Director encrypted-PersistData key for the token
 
 	MINIAPP_BINDING_START = 3101
 	MINIAPP_BINDING_END = 3125
@@ -147,6 +148,14 @@ function OnDriverInit ()
 	C4:AddVariable ('NOW_PLAYING', '', 'STRING', true)
 	C4:AddVariable ('MEDIA_STATUS', '', 'STRING', true)
 	C4:AddVariable ('CURRENT_GAME', '', 'STRING', true)
+
+	-- Load the token from Director's encrypted PersistData store (PersistData is
+	-- OnDriverInit-safe). The token is NOT kept in the plaintext password
+	-- property - see OPC.System_Bridge_Token.
+	local ok, stored = pcall (function () return C4:PersistGetValue (PERSIST_TOKEN_KEY, true) end)
+	if (ok and type (stored) == 'string') then
+		g_token = stored
+	end
 end
 
 function OnDriverLateInit ()
@@ -156,6 +165,7 @@ function OnDriverLateInit ()
 
 	UpdateProperty ('Driver Version', DRIVER_VERSION)
 	UpdateProperty ('Director Connection', 'Connected (driver v' .. DRIVER_VERSION .. ' running)')
+	UpdateProperty ('Token Status', (g_token ~= '') and 'Stored (encrypted at rest)' or 'Not set')
 
 	HideProxyInAllRooms (SWITCHER_PROXY)
 
@@ -194,11 +204,26 @@ function OPC.Debug_Mode (value)
 end
 
 function OPC.System_Bridge_Token (value)
-	g_token = trim (value)
-	if (g_token == '') then
-		UpdateProperty ('System Bridge Connection', 'No token set - paste the System Bridge token')
-	elseif (g_ws and g_ws.running) then
-		-- token changed while connected: retry subscriptions with the new token
+	value = trim (value)
+
+	-- Empty means either the post-store blank we do below, or the OnDriverLateInit
+	-- property replay of an already-blanked field. In both cases keep the token
+	-- that OnDriverInit loaded from encrypted PersistData - do NOT clear it here.
+	-- (Use the 'Clear Stored Token' action to remove it.)
+	if (value == '') then
+		return
+	end
+
+	-- A newly entered token: move it into Director's encrypted PersistData store
+	-- and immediately blank the plaintext property so the secret is not persisted
+	-- in cleartext in the project DB / .c4bak. UpdateProperty does not re-fire
+	-- OnPropertyChanged, so blanking here is safe (no recursion, no clear).
+	C4:PersistSetValue (PERSIST_TOKEN_KEY, value, true)
+	g_token = value
+	UpdateProperty ('System Bridge Token', '')
+	UpdateProperty ('Token Status', 'Stored (encrypted at rest)')
+
+	if (g_ws and g_ws.running) then
 		SBSubscribe ()
 	end
 end
@@ -965,6 +990,13 @@ function EC.Get_MAC_Address (tParams)
 	else
 		UpdateProperty ('System Bridge Connection', 'Cannot fetch MAC - Steam Machine is offline')
 	end
+end
+
+function EC.Clear_Stored_Token (tParams)
+	C4:PersistSetValue (PERSIST_TOKEN_KEY, '', true)
+	g_token = ''
+	UpdateProperty ('Token Status', 'Not set')
+	UpdateProperty ('System Bridge Connection', 'No token set - paste the System Bridge token')
 end
 
 function EC.Test_Connection (tParams)

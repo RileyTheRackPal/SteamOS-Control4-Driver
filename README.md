@@ -55,9 +55,10 @@ end-user system.** In short:
   property to a TLS mode. Whether or not you enable TLS, put the Steam Machine +
   Director on a **dedicated VLAN**, **firewall port 9170 to the Director only**,
   and never port-forward it.
-- The developer `.c4z` is **unencrypted**, so a real token is stored in cleartext
-  in the Director DB and project backups — use an **encrypted release build** in
-  production and don't share backups taken with a real token.
+- The token is stored in Director's **encrypted PersistData**, not in a cleartext
+  property (Token Status property + Clear Stored Token action). Still don't share
+  project backups taken with a real token. Driver encryption is optional and only
+  protects the source code, not the token.
 - The driver enforces a **`steam://`-only URI allowlist**, sanitizes inbound
   data, and the c4pad helper has **no network listener** and runs sandboxed. See
   SECURITY.md for the full threat model, the data collected, and residual risk.
@@ -68,7 +69,7 @@ end-user system.** In short:
 - Media transport controls MPRIS players (browser/Spotify), not the game itself; Media Mute is one-way (playerctl sets player volume to 0)
 - With Off Mode = `Power Off`, a queued game launch survives up to 5 minutes of cold boot; Sleep mode (default) resumes in seconds
 - "Notification Sent" event fires for notifications sent *by Control4*; System Bridge does not report other desktop notifications
-- The developer `.c4z` is unsigned/unencrypted (Composer treats it as a developer driver) — see [SECURITY.md](SECURITY.md); ship an encrypted release build for production so the token is not stored in cleartext
+- The token is stored in Director's **encrypted PersistData** (not in a cleartext property); see [SECURITY.md](SECURITY.md). The developer `.c4z` is unsigned/unencrypted (Composer treats it as a developer driver) — optionally encrypt it with the free DriverPackager to also hide the source, but note driver encryption protects the *code*, not the stored token
 
 ## Implementation notes
 

@@ -48,9 +48,10 @@ Server Certificate property). Also compensate at the network layer:</p>
 <b>never port-forward it</b>. A router/switch ACL is more durable than a host firewall.</li>
 <li>Prefer wired Ethernet; rotate the token (<code>system-bridge client token</code>) if exposed.</li>
 </ul>
-<p><b>This developer driver is unencrypted</b>, so a real token is stored in cleartext in the
-Director project database and in every project backup. For production, install an <b>encrypted
-release build</b> and do not share backups taken with a real token configured.</p>
+<p><b>Token at rest:</b> the token is NOT kept in a cleartext property - on entry it is moved into
+Director's encrypted PersistData store and the field is cleared (see the Token Status property and
+the Clear Stored Token action). Driver encryption is optional and only protects the Lua source, not
+the stored token. Still avoid sharing project backups taken with a real token configured.</p>
 <p><b>Privacy:</b> uptime, CPU/GPU temperature, usage, hostname, MAC, and now-playing are pulled
 from System Bridge; hostname/now-playing/current-game persist in Control4 variables (and thus in
 the Director DB and backups). The driver only sends <code>steam://</code> URIs to the machine

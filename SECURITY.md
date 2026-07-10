@@ -5,6 +5,14 @@ before deploying on an end-user system. It covers the threat model, the
 mitigations built into this code, and the deployment steps you must take that
 the code cannot enforce for you.
 
+## At a glance
+
+| Exposure | Control | Where |
+|---|---|---|
+| Token **on the LAN** (cleartext ws://) | c4tls TLS proxy + VLAN/firewall | `steamos-tls/`, network |
+| Token **at rest** in Director DB / backups | encrypted PersistData (built in) | this driver |
+| Driver **source code** (optional) | `encryption="2"` via DriverPackager (free) | build step |
+
 ## The System Bridge token is a full local-user credential
 
 System Bridge authenticates every request with a single UUID **token**. That one
@@ -47,19 +55,34 @@ Whether or not you enable TLS, also compensate at the network layer:
 - Prefer **wired Ethernet** for both endpoints over Wi-Fi.
 - Rotate the token (`system-bridge client token`) if it may have been exposed.
 
-## Credential at rest: encrypt production builds
+## Credential at rest: the token is stored encrypted (PersistData)
 
-A DriverWorks `<password>` property is only masked in Composer — it is **not
-encrypted** unless the driver itself is encrypted. The developer `.c4z` built by
-`tools/build.ps1` is **unencrypted**, so the pasted System Bridge token is stored
-in **cleartext** in the Director project database and in every `.c4bak`/project
-backup an integrator copies off-site.
+A DriverWorks `<password>` property is only **masked in Composer's UI — the value
+itself is stored unprotected** in the project, and (per Snap One's docs) driver
+encryption does **not** change that: encrypting the driver protects the **Lua
+source code**, not persisted property values.
 
-- **Do not install an unencrypted build with a real token on a production system.**
-  Produce an **encrypted** release `.c4z` (Snap One DriverPackager with a
-  developer signing key, `encryption="2"` on `<script>`) for deployment.
-- Never share a project backup that was taken while a real token was configured;
-  rotate the token if you do.
+So this driver does **not** keep the token in the password property. On entry it
+moves the token into Director's **encrypted PersistData store**
+(`C4:PersistSetValue(key, token, true)` — "encrypted in the database") and blanks
+the plaintext property. The token is loaded back with `C4:PersistGetValue(key,
+true)` at startup. Effect: the plaintext token is not persisted in the project DB
+or in a `.c4bak`; the **Token Status** property shows whether an encrypted token
+is stored, and the **Clear Stored Token** action removes it.
+
+Honest limits of this control:
+- The cryptographic strength of Director's PersistData encryption is not
+  documented, and the Director firmware's decryption key has historically been
+  extractable. So this defeats **casual** extraction from a shared/stolen project
+  backup (the realistic threat — integrators copy `.c4bak` files off-site); it is
+  not a guarantee against an attacker with Director-level access to the live
+  system.
+- Still avoid sharing project backups taken with a real token, and rotate the
+  token (`system-bridge client token`) if a backup may have been exposed.
+- **Optionally also encrypt the driver** (`encryption="2"` via Snap One's free,
+  open-source DriverPackager — **no signing key required**; certification is a
+  separate free program) to hide the token-handling code. That is additive IP
+  protection, **not** the at-rest control.
 
 ## Data privacy
 
