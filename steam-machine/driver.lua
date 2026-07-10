@@ -21,9 +21,11 @@ do -- constants
 	SWITCHER_PROXY = 5002		-- avswitch proxy binding hosting the RF_MINI_APP inputs
 	NET_BINDING = 6001			-- static network binding (address entry only; WS runs on its own binding)
 
-	SB_PORT = 9170
+	SB_PORT = 9170				-- System Bridge plaintext ws:// port
+	SB_TLS_PORT = 9171			-- default c4tls proxy wss:// port
 	SB_WS_PATH = '/api/websocket'
 	SB_MODULES = { 'system', 'cpu', 'memory', 'gpus', 'media', 'battery' }
+	CA_FILENAME = 'c4tls_ca.pem'	-- pinned cert written to the driver sandbox
 
 	MINIAPP_BINDING_START = 3101
 	MINIAPP_BINDING_END = 3125
@@ -57,6 +59,9 @@ do -- driver state
 	g_reconnectDelay = 5
 	g_lastRx = 0
 	g_wantMacUpdate = false
+	g_secMode = 'Plaintext (ws://)'	-- Connection Security property
+	g_tlsPort = SB_TLS_PORT
+	g_caReady = false				-- pinned cert written to sandbox
 	g_pendingLaunch = nil		-- URI to open once authenticated
 	g_lastGameLaunch = 0
 	g_lastMediaStatus = nil
@@ -197,6 +202,52 @@ function OPC.System_Bridge_Token (value)
 	end
 end
 
+function OPC.Connection_Security (value)
+	g_secMode = value
+	Reconnect ()
+end
+
+function OPC.TLS_Port (value)
+	local p = tonumber (trim (value))
+	if (p and p >= 1 and p <= 65535) then
+		g_tlsPort = math.floor (p)
+	else
+		g_tlsPort = SB_TLS_PORT
+	end
+	if (g_secMode:find ('^TLS')) then
+		Reconnect ()
+	end
+end
+
+function OPC.Server_Certificate (value)
+	value = trim (value)
+	local pem
+	if (value == '') then
+		g_caReady = false
+	elseif (value:find ('BEGIN CERTIFICATE')) then
+		pem = value						-- pasted raw PEM
+	else
+		local ok, decoded = pcall (function () return C4:Base64Decode (value) end)
+		if (ok and type (decoded) == 'string' and decoded:find ('BEGIN CERTIFICATE')) then
+			pem = decoded				-- single-line base64 blob the installer prints
+		end
+	end
+
+	if (pem) then
+		-- CACERTFILE is a path relative to the driver's c4z location; write the
+		-- pinned cert into the sandbox and reference it there
+		FileWrite (CA_FILENAME, pem, true)
+		g_caReady = true
+	elseif (value ~= '') then
+		g_caReady = false
+		dbg ('Server Certificate is not a valid PEM or base64-encoded PEM')
+	end
+
+	if (g_secMode:find ('^TLS')) then
+		Reconnect ()
+	end
+end
+
 function OPC.MAC_Address (value)
 	local mac = normalizeMac (value)
 	if (mac ~= '') then
@@ -243,14 +294,33 @@ function RefreshAddress ()
 	Connect ()
 end
 
+-- Build the WebSocket URL + TLS options for the current security mode.
+-- Plaintext -> ws://ip:9170 ; TLS modes -> wss://ip:tlsport via the c4tls proxy.
+function ConnectionConfig ()
+	if (g_secMode == 'TLS encrypt-only (wss://)') then
+		return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
+			{ VERIFY_MODE = 'none' }
+	elseif (g_secMode == 'TLS pinned (wss://)') then
+		if (g_caReady) then
+			return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
+				{ VERIFY_MODE = 'peer', CACERTFILE = './' .. CA_FILENAME }
+		end
+		-- pinned selected but no valid cert yet: encrypt-only rather than fail
+		dbg ('TLS pinned selected but no certificate set; using encrypt-only until a cert is pasted')
+		return 'wss://' .. g_ip .. ':' .. g_tlsPort .. SB_WS_PATH,
+			{ VERIFY_MODE = 'none' }
+	end
+	return 'ws://' .. g_ip .. ':' .. SB_PORT .. SB_WS_PATH, nil
+end
+
 function Connect ()
 	if (g_ip == '') then
 		return
 	end
 
 	if (not g_ws) then
-		local url = 'ws://' .. g_ip .. ':' .. SB_PORT .. SB_WS_PATH
-		local ws, err = WebSocket:new (url)
+		local url, wssOptions = ConnectionConfig ()
+		local ws, err = WebSocket:new (url, nil, wssOptions)
 		if (not ws) then
 			UpdateProperty ('Network Connection', 'Error: ' .. tostring (err))
 			return
@@ -262,8 +332,23 @@ function Connect ()
 		g_ws:SetClosedByRemoteFunction (function (socket) OnWsDown ('Closed by remote') end)
 	end
 
-	UpdateProperty ('Network Connection', 'Connecting to ' .. g_ip .. '...')
+	UpdateProperty ('Network Connection', 'Connecting to ' .. g_ip .. ' (' .. g_secMode .. ')...')
 	g_ws:Start ()
+end
+
+-- Tear down and rebuild the socket after a security/port/cert change.
+function Reconnect ()
+	if (g_ws) then
+		g_ws:delete ()
+		g_ws = nil
+	end
+	CancelTimer ('Reconnect')
+	SetOnline (false)
+	g_tcpUp = false
+	g_reconnectDelay = 5
+	if (g_ip ~= '') then
+		Connect ()
+	end
 end
 
 function OnWsEstablished ()
@@ -271,7 +356,9 @@ function OnWsEstablished ()
 	g_reconnectDelay = 5
 	g_lastRx = os.time ()
 	CancelTimer ('Reconnect')
-	UpdateProperty ('Network Connection', 'Online (' .. g_ip .. ':' .. SB_PORT .. ')')
+	local port = (g_secMode:find ('^TLS')) and g_tlsPort or SB_PORT
+	local enc = (g_secMode == 'Plaintext (ws://)') and 'plaintext' or 'TLS'
+	UpdateProperty ('Network Connection', 'Online (' .. g_ip .. ':' .. port .. ', ' .. enc .. ')')
 	SBSubscribe ()
 end
 

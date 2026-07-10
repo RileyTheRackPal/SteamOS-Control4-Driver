@@ -54,6 +54,32 @@
 				<tooltip>Paste the token from the Steam Machine. Get it by running: system-bridge client token</tooltip>
 			</property>
 			<property>
+				<name>Connection Security</name>
+				<type>LIST</type>
+				<readonly>false</readonly>
+				<default>Plaintext (ws://)</default>
+				<items>
+					<item>Plaintext (ws://)</item>
+					<item>TLS encrypt-only (wss://)</item>
+					<item>TLS pinned (wss://)</item>
+				</items>
+				<tooltip>Plaintext = direct to System Bridge (token travels in the clear - only on a trusted VLAN). TLS modes require the c4tls proxy on the Steam Machine (see steamos-tls): encrypt-only stops passive sniffing; pinned also verifies the server cert (paste it below). See SECURITY.md.</tooltip>
+			</property>
+			<property>
+				<name>TLS Port</name>
+				<type>STRING</type>
+				<readonly>false</readonly>
+				<default>9171</default>
+				<tooltip>Port the c4tls proxy listens on (only used by the TLS modes). Default 9171.</tooltip>
+			</property>
+			<property>
+				<name>Server Certificate</name>
+				<type>STRING</type>
+				<readonly>false</readonly>
+				<default></default>
+				<tooltip>For TLS pinned mode only: paste the base64 line printed by the c4tls installer (or the full PEM). Leave blank for Plaintext / encrypt-only.</tooltip>
+			</property>
+			<property>
 				<name>MAC Address</name>
 				<type>STRING</type>
 				<readonly>false</readonly>

@@ -20,17 +20,30 @@ token grants an attacker, per the System Bridge protocol:
 There is no per-capability scoping. **Token disclosure = full remote control of
 the machine and its user's data.** Treat it like a password to the PC.
 
-## Transport is plaintext — this cannot be fixed in the driver
+## Transport is plaintext by default — but you can encrypt it
 
 System Bridge exposes **`ws://` only (no TLS)** and its server **accepts all
-origins**; the token travels in cleartext in every WebSocket message. Anyone who
-can sniff the LAN segment or reach port 9170 can capture and replay it. We cannot
-add TLS to a dependency that does not offer it. You **must** compensate at the
-network layer:
+origins**; by default the token travels in cleartext in every WebSocket message,
+so anyone who can sniff the LAN segment or reach port 9170 can capture and replay
+it.
+
+**You can encrypt it with the c4tls proxy (recommended).** `steamos-tls/` ships a
+tiny TLS-terminating reverse proxy for the Steam Machine: the driver connects
+`wss://` to it and it forwards plaintext only to loopback, so the token is
+encrypted on the wire. Set the driver's **Connection Security** property to
+`TLS encrypt-only` (stops passive sniffing) or `TLS pinned` (also stops active
+MITM). See `steamos-tls/README.md`. This is the one control that actually takes
+the token off the wire in cleartext.
+
+Whether or not you enable TLS, also compensate at the network layer:
 
 - Put the Steam Machine and the Control4 Director on a **dedicated/trusted VLAN**.
-- **Firewall port 9170** so only the Director's IP may reach it. **Never
-  port-forward 9170** to the internet.
+- **Firewall port 9170** (and the TLS port, e.g. 9171) so only the Director's IP
+  may reach it. **Never port-forward** them to the internet. A host firewall on
+  the Steam Machine or a router/switch ACL both work; the router/switch is more
+  durable (survives SteamOS updates, can't be disabled from a compromised box).
+  Note a host firewall filters *connections* but not passive *sniffing* of the
+  cleartext token — which is exactly what enabling TLS (above) closes.
 - Prefer **wired Ethernet** for both endpoints over Wi-Fi.
 - Rotate the token (`system-bridge client token`) if it may have been exposed.
 
@@ -78,6 +91,10 @@ hostname, MAC address, now-playing title/artist**. Implications:
   socket reads, caps concurrent connections, and runs under a **sandboxed
   systemd unit** (`NoNewPrivileges`, `ProtectSystem=full`, syscall filter, the
   System Bridge token dir made inaccessible, `/dev/uinput` the only device).
+- **Optional TLS transport** (`steamos-tls/c4tls`): encrypts the token on the
+  LAN, terminating TLS on the Steam Machine and forwarding only to loopback.
+  Stdlib-only static binary, self-signed RSA cert usable as its own pin, also
+  sandboxed. See `steamos-tls/README.md`.
 - **Supply chain**: the one native dependency (`ThomasT75/uinput`) is version-
   pinned with committed `go.sum`; release builds run `go mod verify` and
   `-mod=readonly` (no network, no silent manifest rewrite). Vendored Lua libs are

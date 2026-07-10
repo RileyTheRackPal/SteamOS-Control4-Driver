@@ -1,0 +1,37 @@
+[Unit]
+Description=c4tls TLS-terminating proxy for System Bridge (Control4 Steam Machine driver)
+After=network-online.target
+
+[Service]
+ExecStart=%h/c4tls/c4tls -listen :9171 -backend 127.0.0.1:9170 -certdir %h/c4tls
+Restart=on-failure
+RestartSec=2
+
+# Sandboxing (defense-in-depth). Unlike the c4pad uinput helper, this proxy uses
+# TCP sockets, so RestrictAddressFamilies MUST include the INET families. It only
+# reads its pre-generated cert/key and touches no other filesystem or device.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallArchitectures=native
+# If the daemon fails to start after install (systemctl --user status c4tls shows
+# a sandbox-related failure), comment out SystemCallFilter and
+# RestrictAddressFamilies first — they are the strictest lines here.
+
+[Install]
+WantedBy=default.target

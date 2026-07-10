@@ -37,10 +37,15 @@ and launches via its steam:// URI when selected.</p>
 <p><b>The System Bridge token is a full local-user credential</b> - it grants arbitrary file
 reads, shutdown/restart, opening URIs, keyboard injection, and command execution on the Steam
 Machine. System Bridge transmits it in <b>cleartext over ws://</b> (no TLS) and accepts
-connections from any origin. You must compensate at the network layer:</p>
+connections from any origin.</p>
+<p><b>Encrypt it:</b> install the <b>c4tls proxy</b> (steamos-tls in the driver package) on the
+Steam Machine and set the <b>Connection Security</b> property to "TLS encrypt-only" (stops passive
+sniffing) or "TLS pinned" (also stops active MITM; paste the cert the installer prints into the
+Server Certificate property). Also compensate at the network layer:</p>
 <ul>
 <li>Put the Steam Machine and the Control4 Director on a <b>dedicated/trusted VLAN</b>.</li>
-<li><b>Firewall port 9170</b> so only the Director's IP can reach it; <b>never port-forward it</b>.</li>
+<li><b>Firewall port 9170</b> (and the TLS port) so only the Director's IP can reach it;
+<b>never port-forward it</b>. A router/switch ACL is more durable than a host firewall.</li>
 <li>Prefer wired Ethernet; rotate the token (<code>system-bridge client token</code>) if exposed.</li>
 </ul>
 <p><b>This developer driver is unencrypted</b>, so a real token is stored in cleartext in the

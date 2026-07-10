@@ -11,8 +11,10 @@ with per-game quick-launch **mini drivers** using Steam's `steam://` URI handlin
 | `steam-machine/` | **Steam Machine (System Bridge)** | Main device driver: media_player proxy, HDMI/audio outputs, WoL power-on, System Bridge WebSocket control, programming events/variables, hosts up to 25 game mini apps |
 | `steam-game-miniapp/` | **Steam Game (Mini App)** | Per-game Watch-list tile; publishes its `steam://` URI to the parent (universal-minidriver pattern, `RF_MINI_APP`) |
 | `steamos-pad/` | **c4pad** | SteamOS helper: persistent uinput virtual Xbox 360 pad + owner-only local socket, driven via System Bridge `COMMAND_EXECUTE` (no network listener) - makes navigator keys work in game mode; see [steamos-pad/README.md](steamos-pad/README.md) |
+| `steamos-tls/` | **c4tls** | Optional TLS-terminating proxy: encrypts the System Bridge token on the LAN (`wss://` -> loopback `ws://`); stdlib-only static binary; see [steamos-tls/README.md](steamos-tls/README.md) |
 | `tools/build.ps1` | - | Packages each driver folder into a `.c4z` under `dist/` |
 | `tools/build-c4pad.ps1` | - | Cross-compiles the c4pad SteamOS helper (static linux/amd64) |
+| `tools/build-c4tls.ps1` | - | Cross-compiles the c4tls TLS proxy (static linux/amd64) |
 | `tools/make-icons.ps1` | - | Regenerates the placeholder icons |
 
 ## Features
@@ -48,8 +50,11 @@ end-user system.** In short:
 
 - The System Bridge **token is a full local-user credential** (arbitrary file
   reads, shutdown, `OPEN`, keyboard, command execution) and travels in
-  **cleartext over `ws://`** — put the Steam Machine + Director on a **dedicated
-  VLAN**, **firewall port 9170 to the Director only**, and never port-forward it.
+  **cleartext over `ws://`** by default. Encrypt it by installing the **c4tls
+  proxy** (`steamos-tls/`) and setting the driver's **Connection Security**
+  property to a TLS mode. Whether or not you enable TLS, put the Steam Machine +
+  Director on a **dedicated VLAN**, **firewall port 9170 to the Director only**,
+  and never port-forward it.
 - The developer `.c4z` is **unencrypted**, so a real token is stored in cleartext
   in the Director DB and project backups — use an **encrypted release build** in
   production and don't share backups taken with a real token.
