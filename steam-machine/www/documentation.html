@@ -33,6 +33,75 @@ and "Send Test Notification" / "Test Connection" to verify the link.</li>
 to a free "Game App N" input on this driver. The game then appears in the room's Watch list
 and launches via its steam:// URI when selected.</p>
 
+<h2>Programming reference</h2>
+<p>What this driver exposes in Composer's <b>Programming</b> view (the <b>Actions</b> tab items
+below are one-click buttons, separate from Programming).</p>
+
+<h3>Events &mdash; "When the Steam Machine &hellip;"</h3>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th align="left">Event</th><th align="left">Fires when</th></tr>
+<tr><td>Came Online</td><td>System Bridge connects (reachable + authenticated)</td></tr>
+<tr><td>Went Offline</td><td>System Bridge connection is lost</td></tr>
+<tr><td>Turned On</td><td>the device is selected / turned on in a room</td></tr>
+<tr><td>Turned Off</td><td>a room turns the device off</td></tr>
+<tr><td>Game Launched</td><td>a game or steam:// URI is launched</td></tr>
+<tr><td>Notification Sent</td><td>Control4 successfully delivers a notification to it</td></tr>
+<tr><td>Media Started Playing / Paused / Stopped</td><td>media playback state changes (MPRIS)</td></tr>
+<tr><td>Red / Green / Yellow / Blue Button Pressed</td><td>the matching colored-button command runs while its action is set to <b>Fire Programming Event</b></td></tr>
+</table>
+
+<h3>Device commands</h3>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th align="left">Command</th><th align="left">Parameters / notes</th></tr>
+<tr><td>Power On</td><td>Wake-on-LAN</td></tr>
+<tr><td>Power Off</td><td>obeys the Off Mode property</td></tr>
+<tr><td>Sleep / Shut Down / Restart / Lock</td><td>&mdash;</td></tr>
+<tr><td>Launch Big Picture</td><td>&mdash;</td></tr>
+<tr><td>Launch Steam Game</td><td>App ID</td></tr>
+<tr><td>Open URI</td><td>URI (steam:// only, enforced)</td></tr>
+<tr><td>Send Notification</td><td>Title, Message</td></tr>
+<tr><td>Media Play Pause / Next / Previous / Stop</td><td>&mdash;</td></tr>
+<tr><td>Media Volume Up / Down / Mute</td><td>MPRIS player volume; Mute is one-way</td></tr>
+<tr><td>Send Keyboard Key</td><td>Key (Desktop Mode; may not reach the game session)</td></tr>
+<tr><td>Press Gamepad Button</td><td>Button (needs the c4pad Gamepad Bridge)</td></tr>
+<tr><td>Red / Green / Yellow / Blue Button</td><td>runs that color's configured action (see below)</td></tr>
+<tr><td>Steam Menu</td><td>Guide button</td></tr>
+<tr><td>Quick Access Menu</td><td>Steam+A; needs c4pad</td></tr>
+<tr><td>Toggle On-Screen Keyboard</td><td>Steam+X; needs c4pad</td></tr>
+<tr><td>Screenshot</td><td>Steam+R1; needs c4pad</td></tr>
+<tr><td>Toggle Magnifier</td><td>Steam+L1; needs c4pad</td></tr>
+<tr><td>Force Quit Game</td><td>Steam+B held; needs c4pad</td></tr>
+</table>
+
+<h3>Colored (RGBY) navigator buttons</h3>
+<p>Control4's colored remote/touchscreen buttons are <b>physical programmable buttons</b> &mdash;
+Control4 does not auto-route them to the driver. To use them: in Composer, program the navigator's
+red/green/yellow/blue button to execute the matching command (<code>Red Button</code>, &hellip;).
+Each button's behavior is chosen by a property dropdown (System Design &rarr;
+<b>Red/Green/Yellow/Blue Button Action</b>): Steam Menu, Quick Access Menu, Toggle On-Screen
+Keyboard, Screenshot, Toggle Magnifier, Force Quit Game, Launch Big Picture, Media Play/Pause, or
+<b>Fire Programming Event</b> (fires the matching event so you can bind any Control4 programming).
+The chord actions require the c4pad Gamepad Bridge; Steam Menu / Big Picture / Play-Pause do not.
+The individual Steam actions are also standalone commands, bindable to any button or scene.</p>
+
+<h3>Variables (for conditionals and values)</h3>
+<table border="1" cellpadding="4" cellspacing="0">
+<tr><th align="left">Variable</th><th align="left">Type</th><th align="left">Meaning</th></tr>
+<tr><td>ONLINE</td><td>BOOL</td><td>System Bridge connected</td></tr>
+<tr><td>UPTIME_SECONDS / UPTIME_TEXT</td><td>NUMBER / STRING</td><td>uptime in seconds / formatted (e.g. 2d 3h 10m)</td></tr>
+<tr><td>HOSTNAME</td><td>STRING</td><td>machine hostname</td></tr>
+<tr><td>CPU_TEMPERATURE / GPU_TEMPERATURE</td><td>NUMBER</td><td>&deg;C (GPU = hottest)</td></tr>
+<tr><td>CPU_USAGE / MEMORY_USED_PERCENT</td><td>NUMBER</td><td>percent</td></tr>
+<tr><td>BATTERY_PERCENT</td><td>NUMBER</td><td>percent (null-ish on a desktop)</td></tr>
+<tr><td>NOW_PLAYING</td><td>STRING</td><td>current media title &ndash; artist</td></tr>
+<tr><td>MEDIA_STATUS</td><td>STRING</td><td>PLAYING / PAUSED / STOPPED</td></tr>
+<tr><td>CURRENT_GAME</td><td>STRING</td><td>last launched game name / URI</td></tr>
+</table>
+
+<h3>Actions tab (one-click buttons, not Programming)</h3>
+<p>Get MAC Address From Steam Machine &middot; Test Connection &middot; Send Test Notification
+&middot; Launch Big Picture Now &middot; Clear Stored Token.</p>
+
 <h2>Security &amp; privacy (read before deploying)</h2>
 <p><b>The System Bridge token is a full local-user credential</b> - it grants arbitrary file
 reads, shutdown/restart, opening URIs, keyboard injection, and command execution on the Steam

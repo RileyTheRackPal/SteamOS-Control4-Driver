@@ -76,7 +76,7 @@ end-user system.** In short:
 
 ## Reference
 
-- [docs/PROGRAMMING_REFERENCE.md](docs/PROGRAMMING_REFERENCE.md) — events, device commands, and variables in Composer's Programming view
+- The **Programming reference** (events, device commands, colored-button actions, variables) lives in the driver's own documentation — [steam-machine/www/documentation.html](steam-machine/www/documentation.html), shown on Composer's Documentation tab
 - [docs/GENERATED_DRIVERS.md](docs/GENERATED_DRIVERS.md) — the game mini-drivers `make-game-drivers.ps1` produces (top-50 + all Valve titles)
 
 ## Implementation notes
