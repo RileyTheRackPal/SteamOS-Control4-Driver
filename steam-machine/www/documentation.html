@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Steam Machine (System Bridge) Driver</title></head>
+<head><meta charset="utf-8"><title>Steam Machine (System Bridge) Driver</title><link rel="stylesheet" href="documentation.css"></head>
 <body>
 <h1>Steam Machine (System Bridge)</h1>
 <p>Controls a Steam Machine or any SteamOS/Linux PC running <b>System Bridge v5</b>
@@ -38,7 +38,7 @@ and launches via its steam:// URI when selected.</p>
 below are one-click buttons, separate from Programming).</p>
 
 <h3>Events &mdash; "When the Steam Machine &hellip;"</h3>
-<table border="1" cellpadding="4" cellspacing="0">
+<table>
 <tr><th align="left">Event</th><th align="left">Fires when</th></tr>
 <tr><td>Came Online</td><td>System Bridge connects (reachable + authenticated)</td></tr>
 <tr><td>Went Offline</td><td>System Bridge connection is lost</td></tr>
@@ -51,7 +51,7 @@ below are one-click buttons, separate from Programming).</p>
 </table>
 
 <h3>Device commands</h3>
-<table border="1" cellpadding="4" cellspacing="0">
+<table>
 <tr><th align="left">Command</th><th align="left">Parameters / notes</th></tr>
 <tr><td>Power On</td><td>Wake-on-LAN</td></tr>
 <tr><td>Power Off</td><td>obeys the Off Mode property</td></tr>
@@ -85,7 +85,7 @@ The chord actions require the c4pad Gamepad Bridge; Steam Menu / Big Picture / P
 The individual Steam actions are also standalone commands, bindable to any button or scene.</p>
 
 <h3>Variables (for conditionals and values)</h3>
-<table border="1" cellpadding="4" cellspacing="0">
+<table>
 <tr><th align="left">Variable</th><th align="left">Type</th><th align="left">Meaning</th></tr>
 <tr><td>ONLINE</td><td>BOOL</td><td>System Bridge connected</td></tr>
 <tr><td>UPTIME_SECONDS / UPTIME_TEXT</td><td>NUMBER / STRING</td><td>uptime in seconds / formatted (e.g. 2d 3h 10m)</td></tr>
