@@ -1,10 +1,10 @@
 # Generated game mini-drivers
 
-Built by `tools/make-game-drivers.ps1` into `dist/steam-game-<appid>.c4z` (one .c4z per game, square icon baked in). The **top-50** list is a live snapshot of Steam's most-played chart at generation time — re-run the batch to refresh it. The **Valve** list is a curated, live-verified set.
+Built by `tools/make-game-drivers.ps1` into `dist/steam-game-<appid>.c4z` (one .c4z per game, square Steam icon baked in). The **top-50** list is a live snapshot of Steam's most-played chart at generation time — re-run the batch to refresh it. The **Valve** list is a curated, live-verified set.
 
 Regenerate: `pwsh tools/make-game-drivers.ps1` (top-50 + Valve) · `-Valve` · `-Top50` · `-AppIds 620,570`.
 
-Total: **77** game drivers (33 Valve + 44 top-50 non-Valve).
+Total: **76** game drivers (33 Valve + 43 top-50 non-Valve).
 
 ## Valve titles (33)
 
@@ -44,7 +44,7 @@ Total: **77** game drivers (33 Valve + 44 top-50 non-Valve).
 | 1422450 | Deadlock |
 | 1902490 | Aperture Desk Job |
 
-## Top-50 most-played, non-Valve (44)
+## Top-50 most-played, non-Valve (43)
 
 | AppID | Game |
 |------:|------|
@@ -85,7 +85,6 @@ Total: **77** game drivers (33 Valve + 44 top-50 non-Valve).
 | 413150 | Stardew Valley |
 | 105600 | Terraria |
 | 250900 | The Binding of Isaac: Rebirth |
-| 292030 | The Witcher 3 |
 | 359550 | Tom Clancy's Rainbow Six Siege |
 | 438100 | VRChat |
 | 431960 | Wallpaper Engine |
