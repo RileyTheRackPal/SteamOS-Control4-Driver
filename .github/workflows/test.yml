@@ -20,8 +20,8 @@ jobs:
       run:
         working-directory: ${{ matrix.module }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ matrix.module }}/go.mod
           cache: false
@@ -32,7 +32,7 @@ jobs:
     name: Lua drivers
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y lua5.4
       - run: lua5.4 tests/lua/run.lua
 
@@ -41,6 +41,6 @@ jobs:
     # the tools target Windows (System.Drawing, backslash paths in release.ps1)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - shell: pwsh
         run: pwsh -NoProfile -File tests/powershell/run.ps1
