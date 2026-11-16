@@ -36,7 +36,7 @@ works in the UI *and in games*.
    normal session user (no sudo). It:
    - installs the binary to `~/c4pad/` and a **user** systemd unit (both survive
      SteamOS updates and autostart in game mode)
-   - generates and (with `jq`) merges the 21 `c4pad_*` allowlist entries into
+   - generates and (with `jq`) merges the 27 `c4pad_*` allowlist entries (21 press/hold/release + 6 Steam-button chords) into
      System Bridge's `settings.json` - **restart System Bridge afterwards**
    - verifies `/dev/uinput` access and prints a one-time sudo fallback
      (udev rule + update keep-list) if your image lacks the standard ACL

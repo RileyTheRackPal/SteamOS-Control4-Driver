@@ -4,6 +4,20 @@ Control4 DriverWorks drivers for controlling a [Steam Machine](https://store.ste
 (or any SteamOS / Linux / Windows PC) through [System Bridge](https://system-bridge.timmo.dev/) v5,
 with per-game quick-launch **mini drivers** using Steam's `steam://` URI handling.
 
+**Download:** [GitHub Releases](https://github.com/RileyTheRackPal/SteamOS-Control4-Driver/releases).
+The latest is **v0.1.0-beta.1** (pre-release). The zip bundle contains `drivers/`, `steamos-helpers/` and docs.
+
+## Quick start
+
+1. **Install System Bridge v5** on the Steam Machine (SteamOS or Linux) and confirm it runs. Get the token with `system-bridge client token`.
+2. **Get the drivers.** Download the release bundle, or build `dist/steam-machine.c4z` yourself with `pwsh tools/build.ps1`.
+3. **Add the driver in Composer Pro.** Driver > Add or Update Driver > `steam-machine.c4z`.
+4. **Set the network address.** On the Connections > Network tab, enter the Steam Machine's IP. Bind HDMI OUT to your display.
+5. **Paste the token.** Enter it in the **System Bridge Token** property (it is moved to encrypted storage and the field clears). Run **Get MAC Address From Steam Machine** from the Actions tab if you want Wake-on-LAN, and check that **System Bridge Connection** shows connected.
+6. **Optional extras.** Bind game mini-drivers from `drivers/games/`, and read [SECURITY.md](SECURITY.md) before any end-user deployment. Optionally install the c4tls (encrypted transport) and c4pad (game-mode navigation) helpers on the Steam Machine.
+
+For full steps, see [docs/INSTALLATION.md](docs/INSTALLATION.md).
+
 ## What's here
 
 | Directory | Driver | Purpose |
@@ -41,10 +55,18 @@ System Bridge installation on SteamOS and per-game mini-app cloning with custom 
 
 ## Steam Machine prerequisites
 
-1. System Bridge v5 installed and running (Flatpak recommended on SteamOS; config/token live in `~/.local/share/system-bridge/v5/`)
+1. System Bridge v5 installed and running (config/token live in `~/.local/share/system-bridge/v5/`; run it as a native binary/user service rather than the Flatpak if you plan to use the c4pad Gamepad Bridge, whose `COMMAND_EXECUTE` calls the Flatpak sandbox may block)
 2. Token from `system-bridge client token` pasted into the driver's properties
 3. Wake-on-LAN enabled in firmware + wired Ethernet for power-on
 4. `playerctl` present for media control (bundled in most desktop installs)
+
+## Tests
+
+```powershell
+pwsh tools/test.ps1   # Lua driver specs + PowerShell build-tool tests + Go helper tests
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md#testing) for each suite and how the Linux-only Go tests run on Windows. CI runs them on every push.
 
 ## Security & privacy (read before deploying)
 
@@ -78,6 +100,18 @@ end-user system.** In short:
 
 - The **Programming reference** (events, device commands, colored-button actions, variables) lives in the driver's own documentation — [steam-machine/www/documentation.html](steam-machine/www/documentation.html), shown on Composer's Documentation tab
 - [docs/GENERATED_DRIVERS.md](docs/GENERATED_DRIVERS.md) — the game mini-drivers `make-game-drivers.ps1` produces (top-50 + all Valve titles)
+
+## Documentation
+
+- [docs/INSTALLATION.md](docs/INSTALLATION.md): step-by-step installation and setup
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md): common problems and how to diagnose them
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): components, protocol flows, and driver internals
+- [CONTRIBUTING.md](CONTRIBUTING.md): developer setup, build tools, release process, and conventions
+- [SECURITY.md](SECURITY.md): threat model, data collected, and deployment hardening
+- [RELEASE_NOTES.md](RELEASE_NOTES.md): what is in 0.1.0-beta.1 and what still needs hardware verification
+- [docs/GENERATED_DRIVERS.md](docs/GENERATED_DRIVERS.md): the game mini-drivers the generator produces
+- [steamos-pad/README.md](steamos-pad/README.md): c4pad Gamepad Bridge (game-mode navigation)
+- [steamos-tls/README.md](steamos-tls/README.md): c4tls TLS proxy (encrypted System Bridge transport)
 
 ## Implementation notes
 

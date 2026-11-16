@@ -49,7 +49,8 @@ Copy-Item "$root\steamos-tls\install.sh", "$root\steamos-tls\c4tls.service", "$r
 
 # docs
 Copy-Item "$root\README.md", "$root\SECURITY.md", "$root\RELEASE_NOTES.md" $stage
-Copy-Item "$root\docs\GENERATED_DRIVERS.md" (Join-Path $stage 'docs')
+Copy-Item "$root\CONTRIBUTING.md" $stage
+Copy-Item "$root\docs\*.md" (Join-Path $stage 'docs')
 
 # 3) zip + hash
 $zip = Join-Path $dist "release\$name.zip"
