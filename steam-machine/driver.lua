@@ -77,6 +77,41 @@ require ('drivers-common-public.global.timer')
 WebSocket = require ('drivers-common-public.module.websocket')
 -- JSON global is provided by drivers-common-public.global.lib (loaded by handlers)
 
+-- The vendored OnPropertyChanged logs every new property VALUE via HandlerDebug
+-- (Debug Mode = Print) and print()s it unconditionally if the OPC handler throws.
+-- For the token property that value is the cleartext System Bridge secret, so route
+-- it around the common handler (the vendored lib stays verbatim - see PROVENANCE.md).
+local SECRET_PROPERTIES = { ['System Bridge Token'] = 'System_Bridge_Token' }
+local CommonOnPropertyChanged = OnPropertyChanged
+
+function OnPropertyChanged (strProperty)
+	local handlerName = SECRET_PROPERTIES [strProperty]
+	if (not handlerName) then
+		return CommonOnPropertyChanged (strProperty)
+	end
+
+	HandlerDebug ({ 'OnPropertyChanged: ' .. strProperty, '<redacted>' })
+
+	local value = Properties [strProperty]
+	if (type (value) ~= 'string') then
+		value = ''
+	end
+
+	local handler = OPC and OPC [handlerName]
+	if (type (handler) ~= 'function') then
+		return
+	end
+	local success, ret = pcall (handler, value)
+	if (success) then
+		return ret
+	end
+	if (MetricsHandler) then
+		MetricsHandler:SetCounter ('Error_OnPropertyChanged')
+	end
+	-- the error text could quote the value; log only that it failed
+	print ('OnPropertyChanged error: ' .. strProperty .. ' handler failed')
+end
+
 ---------------------------------------------------------------------------
 -- small helpers
 ---------------------------------------------------------------------------
